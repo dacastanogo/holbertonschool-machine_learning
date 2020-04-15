@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
-
-import numpy as np
-
-def f(x,y):
-    return 10*x+y
-
-b = np.fromfunction(f, (5,4), dtype=int)
-print(b)
+matrix = [[1, 3, 9, 4, 5, 8], [2, 4, 7, 3, 4, 0], [0, 3, 4, 6, 1, 5]]
+the_middle = []
+for each in matrix:
+    the_middle.append(each[2:4])
+print("The middle columns of the matrix are: {}".format(the_middle))
