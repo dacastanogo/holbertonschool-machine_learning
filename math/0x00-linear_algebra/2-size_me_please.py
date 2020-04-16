@@ -9,12 +9,18 @@ def matrix_shape(matrix):
     Getting shape of a matrix
     Return array with dimensions
     """
-    if not matrix:
-        return None
-    shape = []
-    shape.append(len(matrix))
-    shape.append(len(matrix[0]))
-    print ( "len after 2 dimensions is: {}".format(len(matrix[0])))
-    if (len(matrix[0])) > 2:
-        shape.append(len(matrix[0][0]))
-    return(shape)
+    res = []
+    shape_recursion(res, matrix)
+    return(res)
+
+
+def shape_recursion(res, matrix):
+    """
+    Getting shape of a matrix
+    Return array with dimensions
+    """
+    if type(matrix) is int:
+        return
+    for arr in matrix:
+        res.append((len(matrix)))
+        return(shape_recursion(res, arr))
