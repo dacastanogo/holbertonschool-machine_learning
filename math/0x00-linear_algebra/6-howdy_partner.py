@@ -3,6 +3,7 @@
 concatenates two arrays
 """
 
+
 def cat_arrays(arr1, arr2):
     """
     concatenates two arrays
