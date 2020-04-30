@@ -27,10 +27,18 @@ class Poisson:
         """
         Calculates the value of the PMF for a given number of “successes”
         """
-        import math
         if type(k) is not int:
             k = int(k)
         if k < 0:
             return 0
         return (pow(self.lambtha, k)
-                * pow(2.7182818285, -1 * self.lambtha) / math.factorial(k))
+                * pow(2.7182818285, -1 * self.lambtha) / own_factorial(k) )
+
+    def own_factorial(m):
+        """
+        Calculates factorial of a number
+        """
+        if m == 1 or m == 0:
+            return 1
+        else:
+            return m * m_factorial(m-1)
