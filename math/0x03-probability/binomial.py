@@ -46,15 +46,15 @@ class Binomial:
         """
         Calculates the value of the CDF for a given number of “successes”
         """
-        c_prob = 0
+        acum_prob = 0
 
         if type(k) is not int:
             k = int(k)
         if k > self.n or k < 0:
             return 0
         for m in range(0, k + 1):
-            c_prob += self.pmf(m)
-        return c_prob
+            acum_prob += self.pmf(m)
+        return acum_prob
 
 
 def factorial(m):
