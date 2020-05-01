@@ -32,13 +32,29 @@ class Binomial:
             self.p *= n / self.n
 
     def pmf(self, k):
-        """Calculates value of PMF for given number k"""
+        """
+        Calculates the value of the PMF for a given number of “successes”
+        """
         if type(k) is not int:
             k = int(k)
         if k > self.n or k < 0:
             return 0
         return (factorial(self.n) / factorial(k) / factorial(self.n - k)
                 * self.p ** k * (1 - self.p) ** (self.n - k))
+
+    def cdf(self, k):
+        """
+        Calculates the value of the CDF for a given number of “successes”
+        """
+        c_prob = 0
+
+        if type(k) is not int:
+            k = int(k)
+        if k > self.n or k < 0:
+            return 0
+        for m in range(0, k + 1):
+            c_prob += self.pmf(m)
+        return c_prob
 
 
 def factorial(m):
