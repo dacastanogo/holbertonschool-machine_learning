@@ -116,6 +116,7 @@ class DeepNeuralNetwork:
         """
         Calculates one step gradient descent on Neural Network
         """
+        m = Y.shape[1]
         dz = {}
         for idx_l in reversed(range(self.__L)):
             dz = {self.__L: self.__cache["A" + str(self.__L)] - Y}
