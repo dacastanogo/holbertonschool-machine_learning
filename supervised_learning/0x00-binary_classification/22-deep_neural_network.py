@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
-""" DeepNeuralNetwork """
+"""
+Define a DeepNeuralNetwork performing binary classification
+"""
+
+
 import numpy as np
 
 
 class DeepNeuralNetwork:
-    """ class DeepNeuralNetwork """
+    """
+    class DeepNeuralNetwork
+    """
     def __init__(self, nx, layers):
-        """ init DeepNeuralNetwork """
+        """
+        init DeepNeuralNetwork
+        """
         if type(nx) != int:
             raise TypeError('nx must be an integer')
         if nx < 1:
@@ -32,21 +40,29 @@ class DeepNeuralNetwork:
 
     @property
     def L(self):
-        """ The number of layers in the neural network """
+        """
+        The number of layers in the neural network
+        """
         return self.__L
 
     @property
     def cache(self):
-        """ hold all intermediary values of the network """
+        """
+        hold all intermediary values of the network
+        """
         return self.__cache
 
     @property
     def weights(self):
-        """ hold all weights and biased of the network """
+        """
+        hold all weights and biased of the network
+        """
         return self.__weights
 
     def forward_prop(self, X):
-        """ Calculates the forward propagation of the neural network """
+        """
+        Calculates the forward propagation of the neural network
+        """
         self.__cache["A0"] = X
         for ly in range(self.__L):
             Zp = np.matmul(self.__weights["W"+str(ly+1)],
@@ -57,18 +73,24 @@ class DeepNeuralNetwork:
         return self.__cache["A"+str(self.__L)], self.__cache
 
     def cost(self, Y, A):
-        """ Calculates the cost of the model using logistic regression """
+        """
+        Calculates the cost of the model using logistic regression
+        """
         C = np.sum(Y * np.log(A) + (1-Y) * (np.log(1.0000001 - A)))
         return (-1/(Y.shape[1])) * C
 
     def evaluate(self, X, Y):
-        """ Evaluates the neural network’s predictions """
+        """
+        Evaluates the neural network’s predictions
+        """
         self.forward_prop(X)
         return (np.where(self.__cache["A"+str(self.__L)] >= 0.5, 1, 0),
                 self.cost(Y, self.__cache["A"+str(self.__L)]))
 
     def gradient_descent(self, Y, cache, alpha=0.05):
-        """ Calculates one pass of gradient descent on the neural network """
+        """
+        Calculates one pass of gradient descent on the neural network
+        """
         tmp_W = self.__weights.copy()
         m = Y.shape[1]
         for ly in reversed(range(self.__L)):
@@ -92,7 +114,9 @@ class DeepNeuralNetwork:
             dzp = dz
 
     def train(self, X, Y, iterations=5000, alpha=0.05):
-        """ Trains the deep neural network """
+        """
+        Trains the deep neural network
+        """
         if type(iterations) != int:
             raise TypeError("iterations must be an integer")
         if iterations <= 0:
