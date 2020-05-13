@@ -48,14 +48,14 @@ class DeepNeuralNetwork:
     @property
     def cache(self):
         """
-        hold all intermediary values of the network
+        Contain all intermediary values of the network
         """
         return self.__cache
 
     @property
     def weights(self):
         """
-        hold all weights and biased of the network
+        Contain all weights and biased of the network
         """
         return self.__weights
 
