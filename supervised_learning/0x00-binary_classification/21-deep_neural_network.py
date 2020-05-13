@@ -7,7 +7,6 @@ Define a DeepNeuralNetwork performing binary classification
 import numpy as np
 
 
-
 class DeepNeuralNetwork:
     """
     class DeepNeuralNetwork
