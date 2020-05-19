@@ -50,14 +50,14 @@ class DeepNeuralNetwork:
     @property
     def cache(self):
         """
-        Contain all intermediary values of the network
+        Contains all intermediary values of the network
         """
         return self.__cache
 
     @property
     def weights(self):
         """
-        Contain all weights and biased of the network
+        Contains all weights and biased of the network
         """
         return self.__weights
 
@@ -90,7 +90,9 @@ class DeepNeuralNetwork:
                 self.cost(Y, self.__cache["A"+str(self.__L)]))
 
     def gradient_descent(self, Y, cache, alpha=0.05):
-        """ Calculates one pass of gradient descent on the neural network """
+        """
+        Calculates one pass of gradient descent on the neural network
+        """
         tmp_W = self.__weights.copy()
         m = Y.shape[1]
         for ly in reversed(range(self.__L)):
