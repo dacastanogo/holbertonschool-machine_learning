@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-function that calculates the specificity for each class in a confusion matrix
+function that calculates the specificity
+for each class in a confusion matrix
 """
 import numpy as np
 
 
 def specificity(confusion):
     """
-    function that calculates the specificity for each class in a confusion matrix
+    function that calculates the specificity
+    for each class in a confusion matrix
     """
     diagonal = np.diagonal(confusion)
     fullset = np.sum(confusion)
