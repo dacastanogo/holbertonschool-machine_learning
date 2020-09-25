@@ -1,67 +1,87 @@
 #!/usr/bin/env python3
-""" Inception Block """
+"""
+inception block
+"""
 import tensorflow.keras as K
 
 
 def inception_block(A_prev, filters):
-    """ inception block
-    @A_prev: output from the previous layer
-    @filters: tuple or list containing F1, F3R, F3,F5R, F5, FPP, respectively:
-        @F1: number of filters in the 1x1 convolution
-        @F3R: number of filters in the 1x1 convolution before the
-            3x3 convolution
-        @F3: number of filters in the 3x3 convolution
-        @F5R: number of filters in the 1x1 convolution before the
-            5x5 convolution
-        @F5 is the number of filters in the 5x5 convolution
-        @FPP is the number of filters in the 1x1 convolution after
-            the max pooling
-    All convolutions inside the inception block uses a rectified
-        linear activation (ReLU)
-    Returns: the concatenated output of the inception block
+    """Builds an inception block as described in Going Deeper with
+        Convolutions (2014): https://arxiv.org/pdf/1409.4842.pdf
+        Args:
+            - A_prev is the output from the previous layer
+            - filters: is a tuple or list containing F1, F3R, F3,F5R, F5,
+                FPP, respectively:
+                - F1: is the number of filters in the 1x1 convolution
+                - F3R: is the number of filters in the 1x1 convolution before
+                    the 3x3 convolution
+                - F3: is the number of filters in the 3x3 convolution
+                - F5R: is the number of filters in the 1x1 convolution before
+                    the 5x5 convolution
+                - F5: is the number of filters in the 5x5 convolution
+                - FPP: is the number of filters in the 1x1 convolution after
+                    the max pooling
+            - All convolutions inside the inception block should use a
+                rectified linear activation (ReLU)
+        Returns:
+            the concatenated output of the inception block
     """
     F1, F3R, F3, F5R, F5, FPP = filters
-    init = K.initializers.he_normal(seed=None)
 
-    out_F1 = K.layers.Conv2D(filters=F1,
-                             kernel_size=1,
-                             padding='same',
-                             kernel_initializer=init,
-                             activation='relu')(A_prev)
+    initializer = K.initializers.he_normal(seed=None)
 
-    out_F3R = K.layers.Conv2D(filters=F3R,
-                              kernel_size=1,
+    # 1x1 convolution
+    F1_conv = K.layers.Conv2D(filters=F1,
+                              kernel_size=(1, 1),
                               padding='same',
-                              kernel_initializer=init,
+                              kernel_initializer=initializer,
                               activation='relu')(A_prev)
 
-    out_F3 = K.layers.Conv2D(filters=F3,
-                             kernel_size=3,
-                             padding='same',
-                             kernel_initializer=init,
-                             activation='relu')(out_F3R)
+    # 1x1 convolution before the 3x3 convolution
+    F3R_conv = K.layers.Conv2D(filters=F3R,
+                               kernel_size=(1, 1),
+                               padding='same',
+                               kernel_initializer=initializer,
+                               activation='relu')(A_prev)
 
-    out_F5R = K.layers.Conv2D(filters=F5R,
-                              kernel_size=1,
+    # 3x3 convolution
+    F3_conv = K.layers.Conv2D(filters=F3,
+                              kernel_size=(3, 3),
                               padding='same',
-                              kernel_initializer=init,
-                              activation='relu')(A_prev)
+                              kernel_initializer=initializer,
+                              activation='relu')(F3R_conv)
 
-    out_F5 = K.layers.Conv2D(filters=F5,
-                             kernel_size=5,
-                             padding='same',
-                             kernel_initializer=init,
-                             activation='relu')(out_F5R)
+    # 1x1 convolution before the 5x5 convolution
+    F5R_conv = K.layers.Conv2D(filters=F5R,
+                               kernel_size=(1, 1),
+                               padding='same',
+                               kernel_initializer=initializer,
+                               activation='relu')(A_prev)
 
-    max_pool = K.layers.MaxPool2D(pool_size=3,
-                                  strides=1,
-                                  padding='same')(A_prev)
-
-    out_FPP = K.layers.Conv2D(filters=FPP,
-                              kernel_size=1,
+    # 5x5 convolution
+    F5_conv = K.layers.Conv2D(filters=F5,
+                              kernel_size=(5, 5),
                               padding='same',
-                              kernel_initializer=init,
-                              activation='relu')(max_pool)
+                              kernel_initializer=initializer,
+                              activation='relu')(F5R_conv)
 
-    output = K.layers.concatenate([out_F1, out_F3, out_F5, out_FPP])
-    return output
+    # max pooling
+    max_pooling = K.layers.MaxPooling2D(pool_size=(3, 3),
+                                        strides=(1, 1),
+                                        padding='same')(A_prev)
+
+    # 1x1 convolution after the max pooling
+    FPP_conv = K.layers.Conv2D(filters=FPP,
+                               kernel_size=(1, 1),
+                               padding='same',
+                               kernel_initializer=initializer,
+                               activation='relu')(max_pooling)
+
+    # concatenated output of the inception block
+    inception_block = K.layers.concatenate([F1_conv,
+                                            F3_conv,
+                                            F5_conv,
+                                            FPP_conv],
+                                           axis=-1)
+
+    return inception_block
