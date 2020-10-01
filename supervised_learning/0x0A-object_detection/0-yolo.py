@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """ Initialize Yolo v3 """
-
-
 import tensorflow.keras as K
 
 
