@@ -13,8 +13,6 @@ if __name__ == '__main__':
     X = np.concatenate((a, b, c, d, e), axis=0)
     np.random.shuffle(X)
 
-    fig = plt.figure()
     clss = agglomerative(X, 100)
     plt.scatter(X[:, 0], X[:, 1], s=10, c=clss)
     plt.show()
-    fig.savefig('images/12b-agglomerative.jpg')

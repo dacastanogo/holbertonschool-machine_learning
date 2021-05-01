@@ -5,17 +5,20 @@ import matplotlib.pyplot as plt
 np.random.seed(5)
 fruit = np.random.randint(0, 20, (4, 3))
 
+apples = plt.bar([1, 2, 3], fruit[0], 0.5, color='red')
+bananas = plt.bar([1, 2, 3], fruit[1], 0.5, bottom=fruit[0], color='yellow')
+oranges = plt.bar([1, 2, 3], fruit[2], 0.5,
+                  bottom=fruit[0] + fruit[1], color='#ff8000')
+peaches = plt.bar([1, 2, 3], fruit[3], 0.5,
+                  bottom=fruit[0] + fruit[1] + fruit[2], color='#ffe5b4')
 
-x = ('Farrah', 'Fred', 'Felicia')
-
-plt.bar(x, fruit[0], color='red', width=0.5)
-plt.bar(x, fruit[1], bottom=fruit[0], color='yellow', width=0.5)
-plt.bar(x, fruit[2], bottom=np.array(fruit[0])+np.array(fruit[1]),
-        color='orange', width=0.5)
-plt.bar(x, fruit[3], bottom=np.array(fruit[0]) + np.array(fruit[1])
-        + np.array(fruit[2]), color='#ffe5b4', width=0.5)
-plt.title('Number of Fruit per Person')
+plt.xlim(0.6, 3.4, 1)
+plt.xticks(np.arange(1, 4, 1), ('Farrah', 'Fred', 'Felicia'))
+plt.ylim(0, 80, 10)
+plt.xlabel('')
 plt.ylabel('Quantity of Fruit')
-plt.yticks(np.arange(0, 81, 10))
-plt.legend(labels=['apples', 'bananas', 'oranges', 'peaches'])
+plt.legend((apples[0], bananas[0], oranges[0], peaches[0]),
+           ('apples', 'bananas', 'oranges', 'peaches'))
+plt.title('Number of Fruit per Person')
+
 plt.show()

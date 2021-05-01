@@ -5,6 +5,11 @@ import numpy as np
 
 lib_train = np.load('../data/Binary_Train.npz')
 X_3D, Y = lib_train['X'], lib_train['Y']
+# print(lib_train) # lib_train is an npz object (metadata)
+# print(lib_train['X'][:5])
+# print(lib_train['Y'][:5])
+print(X_3D.shape)
+print(Y.shape)
 
 fig = plt.figure(figsize=(10, 10))
 for i in range(100):

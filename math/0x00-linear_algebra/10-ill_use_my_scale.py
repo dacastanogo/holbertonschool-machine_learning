@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
-"""
-function  that calculates the shape of a numpy.ndarray
-"""
+"""define new function"""
 
 
 def np_shape(matrix):
-    """
-    function  that calculates the shape of a numpy.ndarray
-    """
+    """function that calculates the shape of a numpy.ndarray"""
     return matrix.shape

@@ -1,39 +1,45 @@
 #!/usr/bin/env python3
 """
-Create a class Exponential that represents an exponential distribution
+Exponential distribution
 """
 
 
 class Exponential:
-    """
-    class Exponential that represents an exponential distribution
-    """
+    """define class"""
+
+    e = 2.7182818285
 
     def __init__(self, data=None, lambtha=1.):
-        """Initialize data"""
-        if data is None:
+        """class constructor"""
+        if data is None and isinstance(lambtha, (float, int)):
             if lambtha <= 0:
-                raise ValueError("lambtha must be a positive value")
+                raise ValueError('lambtha must be a positive value')
             self.lambtha = float(lambtha)
-        else:
-            if type(data) is not list:
-                raise TypeError("data must be a list")
-            if len(data) <= 1:
-                raise ValueError("data must contain multiple values")
-            self.lambtha = len(data) / sum(data)
+        elif data is not None:
+            if not isinstance(data, list):
+                raise TypeError('data must be a list')
+            if len(data) < 2:
+                raise ValueError('data must contain multiple values')
+            self.lambtha = float(1 / (sum(data) / len(data)))
 
     def pdf(self, x):
         """
-        Calculates the value of the PDF for a given time period
+        function that calculates the probability density function
+        for a given time period x
         """
-        if x < 0:
+        if x is None or x < 0:
             return 0
-        return self.lambtha * pow(2.7182818285, -1 * self.lambtha * x)
+        return (self.lambtha * (
+            Exponential.e ** ((-1 * self.lambtha) * x)
+        ))
 
     def cdf(self, x):
         """
-        Calculates the value of the CDF for a given time period
+        function that calculates the cumulative distribution function
+        for a given time period x
         """
-        if x < 0:
+        if x is None or x < 0:
             return 0
-        return 1 - pow(2.7182818285, -1 * self.lambtha * x)
+        return (1 - (
+            Exponential.e ** ((-1 * self.lambtha) * x)
+        ))

@@ -1,29 +1,22 @@
 #!/usr/bin/env python3
-"""contains the agglomerative function"""
-
+"""
+12-agglomerative.py
+"""
 import scipy.cluster.hierarchy
 import matplotlib.pyplot as plt
 
 
 def agglomerative(X, dist):
     """
-    performs agglomerative clustering on a dataset
-    :param X: numpy.ndarray of shape (n, d) containing the dataset
-    :param dist: maximum cophenetic distance for all clusters
-    :return: clss, a numpy.ndarray of shape (n,)
-        containing the cluster indices for each data point
+    function that performs agglomerative clustering on a dataset
     """
 
-    Z = scipy.cluster.hierarchy.linkage(X,
-                                        method='ward')
+    H = scipy.cluster.hierarchy
+    links = H.linkage(X, method='ward')
+    clss = H.fcluster(links, t=dist, criterion='distance')
 
-    fig = plt.figure(figsize=(25, 10))
-    dn = scipy.cluster.hierarchy.dendrogram(Z,
-                                            color_threshold=dist)
+    plt.figure()
+    H.dendrogram(links, color_threshold=dist)
     plt.show()
-
-    clss = scipy.cluster.hierarchy.fcluster(Z,
-                                            t=dist,
-                                            criterion='distance')
 
     return clss

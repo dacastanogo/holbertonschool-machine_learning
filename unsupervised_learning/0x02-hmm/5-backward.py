@@ -1,85 +1,79 @@
 #!/usr/bin/env python3
-"""contains the backward function"""
-
+"""
+5-backward.py
+"""
 import numpy as np
 
 
 def backward(Observation, Emission, Transition, Initial):
     """
-    performs the backward algorithm for a hidden markov model
-    :param Observation: numpy.ndarray of shape (T,)
-        that contains the index of the observation
-        T is the number of observations
-    :param Emission: numpy.ndarray of shape (N, M)
-        containing the emission probability of a specific observation
-        given a hidden state
-        Emission[i, j] is the probability of observing j given the
-        hidden state i
-        N is the number of hidden states
-        M is the number of all possible observations
-    :param Transition: 2D numpy.ndarray of shape (N, N)
-        containing the transition probabilities
-        Transition[i, j] is the probability of transitioning from the
-        hidden state i to j
-    :param Initial: numpy.ndarray of shape (N, 1) containing the probability
-        of starting
-        in a particular hidden state
-    :return: P, B, or None, None on failure
-        P is the likelihood of the observations given the model
-        B is a numpy.ndarray of shape (N, T) containing the
-        backward path probabilities
-        B[i, j] is the probability of generating the future observations
-        from hidden state i at time j
+    function that performs the backward algorithm for a hidden markov model
     """
-    # type and len(dim) conditions
-    if not isinstance(Observation, np.ndarray) or len(Observation.shape) != 1:
+
+    # Initial: shape (N, 1), N: number of hidden states
+    if not isinstance(Initial, np.ndarray) or Initial.ndim != 2:
         return None, None
-
-    if not isinstance(Emission, np.ndarray) or len(Emission.shape) != 2:
+    if Initial.shape[1] != 1:
         return None, None
-
-    if not isinstance(Transition, np.ndarray) or len(Transition.shape) != 2:
+    if not np.isclose(np.sum(Initial, axis=0), [1])[0]:
         return None, None
-
-    if not isinstance(Initial, np.ndarray) or len(Initial.shape) != 2:
+    # Transition: shape (N, N)
+    if not isinstance(Transition, np.ndarray) or Transition.ndim != 2:
         return None, None
-
-    # dim conditions
-    T = Observation.shape[0]
-
-    N, M = Emission.shape
-
-    if Transition.shape[0] != N or Transition.shape[1] != N:
+    if Transition.shape[0] != Initial.shape[0]:
         return None, None
-
-    if Initial.shape[0] != N or Initial.shape[1] != 1:
+    if Transition.shape[1] != Initial.shape[0]:
         return None, None
-
-    # stochastic
+    if not np.isclose(np.sum(Transition, axis=1),
+                      np.ones(Initial.shape[0])).all():
+        return None, None
+    # Observation: shape (T,), T: number of observations
+    if not isinstance(Observation, np.ndarray) or Observation.ndim != 1:
+        return None, None
+    # Emission: shape (N, M), M: number of all possible observations
+    if not isinstance(Emission, np.ndarray) or Emission.ndim != 2:
+        return None, None
     if not np.sum(Emission, axis=1).all():
         return None, None
-    if not np.sum(Transition, axis=1).all():
+    if not np.isclose(np.sum(Emission, axis=1),
+                      np.ones(Emission.shape[0])).all():
         return None, None
-    if not np.sum(Initial) == 1:
-        return None, None
 
-    Beta = np.zeros((N, T))
-    # initialization
-    Beta[:, T - 1] = np.ones(N)
+    # N: Number of hidden states
+    N = Initial.shape[0]
+    # print("N:", N)
+    # T: Number of observations
+    T = Observation.shape[0]
+    # print("T:", T)
 
-    # recursion
-    for t in range(T - 2, -1, -1):
-        a = Transition
-        b = Emission[:, Observation[t + 1]]
-        c = Beta[:, t + 1]
+    # Initialize B (equivalent to beta): shape (N, T)
+    # B1(z1) = beta1(z1) = 1
+    B = np.zeros((N, T))
+    B[:, T - 1] = np.ones((N))
 
-        abc = a * b * c
-        prob = np.sum(abc, axis=1)
-        Beta[:, t] = prob
+    # Iterate over N and T to compose B (beta)
+    # B: shape (N, T), containing the backward path probabilities
+    # Start by iterating over the time steps T (number of observations)
+    # but on the reverse path this time
+    for j in range(T - 2, -1, -1):
+        for i in range(N):
+            # Compute Bk(zk) = betak(zk) =
+            # sum(over zk-1=1,...N)(Bk+1(zk+1)p(xk+1/zk+1)p(zk+1/zk))
+            # for k=1,...T - 1
+            # B[i, j]: the probability of generating the future observations
+            # from hidden state i at time j
+            B[i, j] = np.sum(B[:, j + 1] * Emission[:, Observation[j + 1]]
+                             * Transition[i, :], axis=0)
+    # Evaluate the likelihood of the observations given the model from B
+    # Sum over the N states of the first event/observation
+    # print("Initial.T * Emission[:, Observation[0]] * B[:, 0]:",
+    #       Initial.T * Emission[:, Observation[0]] * B[:, 0])
+    P = np.sum(Initial.T * Emission[:, Observation[0]] * B[:, 0], axis=1)[0]
+    # print(np.sum(Initial.T *
+    #              Emission[:, Observation[0]] *
+    #              B[:, 0], axis=1)[0],
+    #       np.sum(Initial.T *
+    #              Emission[:, Observation[0]] *
+    #              B[:, 0], axis=1).shape)
 
-    # sum of path probabilities over all possible states
-    # end of path
-    P_first = Initial[:, 0] * Emission[:, Observation[0]] * Beta[:, 0]
-    P = np.sum(P_first)
-
-    return P, Beta
+    return P, B

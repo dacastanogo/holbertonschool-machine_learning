@@ -1,147 +1,161 @@
 #!/usr/bin/env python3
-""" Model """
+"""
+Assemble Model
+"""
 import tensorflow as tf
 import numpy as np
-
-
-def create_Adam_op(loss, alpha, beta1, beta2, epsilon):
-    """ creates the training operation for a neural network
-    in tensorflow using the Adam optimization algorithm
-    """
-    return tf.train.AdamOptimizer(alpha, beta1, beta2, epsilon).minimize(loss)
-
-
-def learning_rate_decay(alpha, decay_rate, global_step, decay_step):
-    """ creates a learning rate decay operation
-    in tensorflow using inverse time decay
-    """
-    return (tf.train.inverse_time_decay(alpha, global_step,
-            decay_step, decay_rate, staircase=True))
-
-
-def create_batch_norm_layer(prev, n, activation):
-    """  creates a batch normalization layer for a neural network
-    in tensorflow
-    """
-    init = tf.contrib.layers.variance_scaling_initializer(mode="FAN_AVG")
-    x = tf.layers.Dense(units=n, activation=None, kernel_initializer=init)
-
-    m, s = tf.nn.moments(x(prev), axes=[0])
-
-    beta = tf.Variable(tf.constant(0.0, shape=[n]),
-                       name='beta', trainable=True)
-    gamma = tf.Variable(tf.constant(1.0, shape=[n]),
-                        name='gamma', trainable=True)
-
-    f = (tf.nn.batch_normalization(x(prev), mean=m, variance=s,
-         offset=beta, scale=gamma, variance_epsilon=1e-8))
-    if activation is None:
-        return f
-    return activation(f)
-
-
-def shuffle_data(X, Y):
-    """  shuffles the data points in two matrices the same way """
-    st0 = np.random.get_state()
-    X_shuffled = np.random.permutation(X)
-    np.random.set_state(st0)
-    Y_shuffled = np.random.permutation(Y)
-    return X_shuffled, Y_shuffled
-
-
-def forward_prop(x, layer_sizes=[], activations=[]):
-    """creates the forward propagation graph for the neural network """
-    net = create_batch_norm_layer(x, layer_sizes[0], activations[0])
-    for i in range(1, len(layer_sizes)):
-        net = create_batch_norm_layer(net, layer_sizes[i], activations[i])
-    return net
-
-
-def calculate_loss(y, y_pred):
-    """ calculates the softmax cross-entropy loss of a prediction """
-    return tf.losses.softmax_cross_entropy(y, y_pred)
-
-
-def calculate_accuracy(y, y_pred):
-    """ calculates the accuracy of a prediction """
-    pred = tf.argmax(y_pred, 1)
-    val = tf.argmax(y, 1)
-    equality = tf.equal(pred, val)
-    accuracy = tf.reduce_mean(tf.cast(equality, tf.float32))
-    return accuracy
 
 
 def model(Data_train, Data_valid, layers, activations, alpha=0.001,
           beta1=0.9, beta2=0.999, epsilon=1e-8, decay_rate=1,
           batch_size=32, epochs=5, save_path='/tmp/model.ckpt'):
-    """  builds, trains, and saves a neural network model in tensorflow
-    using Adam optimization, mini-batch gradient descent,
-    learning rate decay, and batch normalization
-    """
-    x = (tf.placeholder(tf.float32,
-         shape=(None, Data_train[0].shape[1]), name='x'))
-    y = (tf.placeholder(tf.float32,
-         shape=(None, Data_train[1].shape[1]), name='y'))
-    tf.add_to_collection('x', x)
-    tf.add_to_collection('y', y)
+    """function that builds, trains, and saves a nn model in tensorflow"""
 
-    y_pred = forward_prop(x, layers, activations)
-    tf.add_to_collection('y_pred', y_pred)
+    # create placeholders for input data and labels
+    nx = Data_train[0].shape[1]
+    x = tf.placeholder(tf.float32, shape=(None, nx), name='x')
+    classes = Data_train[1].shape[1]
+    y = tf.placeholder(tf.float32, shape=(None, classes), name='y')
 
-    loss = calculate_loss(y, y_pred)
-    tf.add_to_collection('loss', loss)
+    # build forward propagation graph
+    # include batch normalization filters
+    for i in range(len(layers)):
+        if i == 0:
+            y_pred = x
+        initializer = tf.contrib.layers.variance_scaling_initializer(
+            mode="FAN_AVG")
+        if i == len(layers) - 1:
+            layer = tf.layers.Dense(units=layers[i],
+                                    activation=None,
+                                    kernel_initializer=initializer,
+                                    name='layer')
+            if len(activations) and activations[i]:
+                y_pred = activations[i](layer(y_pred))
+            else:
+                y_pred = layer(y_pred)
+            break
+        layer = tf.layers.Dense(units=layers[i],
+                                activation=None,
+                                kernel_initializer=initializer,
+                                name='layer')
+        # Important: make a copy of layer(y_pred) here
+        # before the batch normalization operation
+        Z = layer(y_pred)
+        m, v = tf.nn.moments(Z, axes=[0])
+        beta = tf.Variable(
+            tf.zeros(shape=(1, layers[i]), dtype=tf.float32),
+            trainable=True, name='beta'
+        )
+        gamma = tf.Variable(
+            tf.ones(shape=(1, layers[i]), dtype=tf.float32),
+            trainable=True, name='gamma'
+        )
+        Z_b_norm = tf.nn.batch_normalization(
+            x=Z, mean=m, variance=v, offset=beta, scale=gamma,
+            variance_epsilon=epsilon, name=None
+        )
+        if len(activations) and activations[i]:
+            y_pred = activations[i](Z_b_norm)
+        else:
+            y_pred = Z_b_norm
 
-    accuracy = calculate_accuracy(y, y_pred)
-    tf.add_to_collection('accuracy', accuracy)
+    # define graph operation for accuracy
+    label = tf.argmax(y, axis=1)
+    pred = tf.argmax(y_pred, axis=1)
+    accuracy = tf.reduce_mean(tf.cast(tf.equal(pred, label), tf.float32))
 
+    # define graph operation for loss function
+    loss = tf.losses.softmax_cross_entropy(onehot_labels=y, logits=y_pred)
+
+    # define graph operation for the train method
+    # update the learning rate using inverse time decay
     global_step = tf.Variable(0, trainable=False)
-    alpha = learning_rate_decay(alpha, decay_rate, global_step, 1)
-    train_op = create_Adam_op(loss, alpha, beta1, beta2, epsilon)
-    tf.add_to_collection('train_op', train_op)
+    alpha = tf.train.inverse_time_decay(
+        learning_rate=alpha, global_step=global_step, decay_steps=1,
+        decay_rate=decay_rate, staircase=True, name=None
+    )
+    train_op = tf.train.AdamOptimizer(
+        learning_rate=alpha, beta1=beta1, beta2=beta2, epsilon=epsilon,
+        use_locking=False, name='Adam'
+    ).minimize(loss)
+    # note: passing global_step to minimize would
+    # increment global_step by one on every gradient
+    # descent as opposed to every epoch
+    # ).minimize(loss, global_step=global_step)
 
+    # add variables and operations to collections
+    params = {'x': x, 'y': y, 'y_pred': y_pred, 'accuracy': accuracy,
+              'loss': loss, 'train_op': train_op}
+    for k, v in params.items():
+        tf.add_to_collection(k, v)
+
+    # call to global init, open session
     saver = tf.train.Saver()
     init = tf.global_variables_initializer()
-
     with tf.Session() as sess:
         sess.run(init)
-        feed_dict_t = {x: Data_train[0], y: Data_train[1]}
-        feed_dict_v = {x: Data_valid[0], y: Data_valid[1]}
-        float_iterations = Data_train[0].shape[0]/batch_size
-        iterations = int(float_iterations)
-        if float_iterations > iterations:
-            iterations = int(float_iterations) + 1
-            extra = True
-        else:
-            extra = False
+
         for epoch in range(epochs + 1):
-            cost_t = sess.run(loss, feed_dict_t)
-            acc_t = sess.run(accuracy, feed_dict_t)
-            cost_v = sess.run(loss, feed_dict_v)
-            acc_v = sess.run(accuracy, feed_dict_v)
+
+            loss_t = sess.run(loss,
+                              feed_dict={x: Data_train[0], y: Data_train[1]})
+            acc_t = sess.run(accuracy,
+                             feed_dict={x: Data_train[0], y: Data_train[1]})
+            loss_v = sess.run(loss,
+                              feed_dict={x: Data_valid[0], y: Data_valid[1]})
+            acc_v = sess.run(accuracy,
+                             feed_dict={x: Data_valid[0], y: Data_valid[1]})
             print("After {} epochs:".format(epoch))
-            print("\tTraining Cost: {}".format(cost_t))
+            print("\tTraining Cost: {}".format(loss_t))
             print("\tTraining Accuracy: {}".format(acc_t))
-            print("\tValidation Cost: {}".format(cost_v))
+            print("\tValidation Cost: {}".format(loss_v))
             print("\tValidation Accuracy: {}".format(acc_v))
+
             if epoch < epochs:
-                X_shuffled, Y_shuffled = (shuffle_data(Data_train[0],
-                                          Data_train[1]))
-                for step in range(iterations):
-                    start = step*batch_size
-                    if step == iterations - 1 and extra:
-                        end = (int(step*batch_size +
-                               (float_iterations - iterations + 1) *
-                                batch_size))
+
+                # shuffle input data before each new epoch
+                shuffle = np.random.permutation(Data_train[0].shape[0])
+                X_shuff = Data_train[0][shuffle]
+                Y_shuff = Data_train[1][shuffle]
+
+                # define iteration range for the mini-batch training
+                batches_float = Data_train[0].shape[0] / batch_size
+                batches_int = int(Data_train[0].shape[0] / batch_size)
+
+                # gradient descent step
+                # reinitialized to 0 between epochs
+                step = 0
+
+                # initialize and update the learning rate alpha
+                gs = sess.run(global_step.assign(epoch))
+                a = sess.run(alpha)
+
+                for i in range(0, batches_int + 1):
+                    step += 1
+
+                    # Important: make copies of X_shuff and Y_shuff
+                    if i == batches_int:
+                        if batches_float > batches_int:
+                            X_batch = X_shuff[i * batch_size:]
+                            Y_batch = Y_shuff[i * batch_size:]
+                        else:
+                            break
                     else:
-                        end = step*batch_size + batch_size
-                    feed_dict_mini = {x: X_shuffled[start: end],
-                                      y: Y_shuffled[start: end]}
-                    sess.run(train_op, feed_dict_mini)
-                    if step != 0 and (step + 1) % 100 == 0:
-                        print("\tStep {}:".format(step + 1))
-                        cost_mini = sess.run(loss, feed_dict_mini)
-                        print("\t\tCost: {}".format(cost_mini))
-                        acc_mini = sess.run(accuracy, feed_dict_mini)
-                        print("\t\tAccuracy: {}".format(acc_mini))
+                        X_batch = X_shuff[i * batch_size: (i + 1) * batch_size]
+                        Y_batch = Y_shuff[i * batch_size: (i + 1) * batch_size]
+
+                    # then pass the copies on to feed_dict / train_op
+                    sess.run(train_op, feed_dict={x: X_batch, y: Y_batch})
+
+                    # print after every 100 gradient descent steps
+                    if step % 100 == 0:
+                        loss_b = sess.run(loss, feed_dict={
+                            x: X_batch, y: Y_batch})
+                        acc_b = sess.run(accuracy, feed_dict={
+                            x: X_batch, y: Y_batch})
+                        print("\tStep {}:".format(step))
+                        print("\t\tCost: {}".format(loss_b))
+                        print("\t\tAccuracy: {}".format(acc_b))
+
         save_path = saver.save(sess, save_path)
     return save_path

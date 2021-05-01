@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
-"""
-Function that transposes matrix
-"""
+"""define new function"""
 
 
 def np_transpose(matrix):
-    """
-    Function that transposes matrix
-    Return a new numpy.ndarray
-    """
+    """function that transposes matrix"""
     return matrix.transpose()

@@ -1,26 +1,11 @@
 #!/usr/bin/env python3
-"""
-Calculates the shape of a matrix
-"""
+"""define new function"""
 
 
 def matrix_shape(matrix):
-    """
-    Getting shape of a matrix
-    Return array with dimensions
-    """
-    res = []
-    shape_recursion(res, matrix)
-    return(res)
-
-
-def shape_recursion(res, matrix):
-    """
-    Getting shape of a matrix
-    Return array with dimensions
-    """
-    if type(matrix) is int:
-        return
-    for arr in matrix:
-        res.append((len(matrix)))
-        return(shape_recursion(res, arr))
+    """function that returns the shape of a matrix"""
+    shape = [len(matrix)]
+    while isinstance(matrix[0], list):
+        shape.append(len(matrix[0]))
+        matrix = matrix[0]
+    return shape

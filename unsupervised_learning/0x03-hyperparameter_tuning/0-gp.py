@@ -1,39 +1,48 @@
 #!/usr/bin/env python3
-"""contains the class GaussianProcess"""
-
+"""
+0-gp.py
+"""
 import numpy as np
 
 
 class GaussianProcess:
-    """represents a noiseless 1D Gaussian process"""
+    """Class that instantiates a noiseless 1D Gaussian process"""
 
     def __init__(self, X_init, Y_init, l=1, sigma_f=1):
-        """
-        constructor
-        :param X_init: numpy.ndarray of shape (t, 1)
-            representing the inputs already sampled with the black-box function
-        :param Y_init: numpy.ndarray of shape (t, 1)
-            representing the outputs of the black-box function for each input
-            in X_init
-            t is number of initial samples
-        :param l: length parameter for the kernel
-        :param sigma_f: standard deviation given to the output of
-            the black-box function
-        """
+        """define and initialize variables and methods"""
+
         self.X = X_init
         self.Y = Y_init
         self.l = l
         self.sigma_f = sigma_f
-        self.K = self.kernel(X_init, X_init)
+        self.K = self.kernel(self.X, self.X)
 
     def kernel(self, X1, X2):
         """
-        calculates the covariance kernel matrix between two matrices:
-        :param X1: numpy.ndarray of shape (m, 1)
-        :param X2: numpy.ndarray of shape (n, 1)
-        :return: covariance kernel matrix as a numpy.ndarray of shape (m, n)
+        function that calculates the covariance kernel matrix
+        between two matrices
         """
-        sqdist = np.sum(X1 ** 2, 1).reshape(-1, 1) \
-            + np.sum(X2 ** 2, 1) \
-            - 2 * np.dot(X1, X2.T)
-        return self.sigma_f ** 2 * np.exp(-0.5 / self.l ** 2 * sqdist)
+
+        # Composition of the constant kernel with the
+        # radial basis function (RBF) kernel, which encodes
+        # for smoothness of functions (i.e. similarity of
+        # inputs in space corresponds to the similarity of outputs)
+
+        # Two hyperparameters: signal variance (sigma_f**2) and lengthscale l
+        # K: Constant * RBF kernel function
+
+        # Compute "dist_sq" (helper to K)
+        # X1: shape (m, 1), m points of 1 coordinate
+        # X2: shape (n, 1), n points of 1 coordinate
+        a = np.sum(X1 ** 2, axis=1, keepdims=True)
+        b = np.sum(X2 ** 2, axis=1, keepdims=True)
+        c = np.matmul(X1, X2.T)
+        # Note: Ensure a and b are aligned with c: shape (m, n)
+        # -> b should be a row vector for the subtraction with c
+        dist_sq = a + b.reshape(1, -1) - 2 * c
+        # print("dist_sq:", dist_sq)
+
+        # K: covariance kernel matrix of shape (m, n)
+        K = (self.sigma_f ** 2) * np.exp(-0.5 * (1 / (self.l ** 2)) * dist_sq)
+
+        return K

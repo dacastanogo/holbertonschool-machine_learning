@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-""" Sequential """
+"""
+Input - use the Input class
+"""
 import tensorflow.keras as K
 
 
 def build_model(nx, layers, activations, lambtha, keep_prob):
-    """ builds a neural network with the Keras library """
-    inputs = K.Input(shape=(nx,))
-    x = K.layers.Dense(layers[0],
-                       activation=activations[0],
-                       kernel_regularizer=K.regularizers.l2(lambtha))(inputs)
-    for i in range(1, len(layers)):
-        x = K.layers.Dropout(1 - keep_prob)(x)
-        x = K.layers.Dense(layers[i], activation=activations[i],
-                           kernel_regularizer=K.regularizers.l2(lambtha))(x)
-    return K.models.Model(inputs=inputs, outputs=x)
+    """function that builds a neural network with the Keras library"""
+    inputs = K.layers.Input(shape=(nx,))
+    for i in range(len(layers)):
+        if i == 0:
+            outputs = inputs
+        outputs = K.layers.Dense(
+            layers[i], activation=activations[i],
+            kernel_regularizer=K.regularizers.l2(lambtha))(outputs)
+        if i != len(layers) - 1:
+            outputs = K.layers.Dropout(1 - keep_prob)(outputs)
+    network = K.models.Model(inputs=inputs, outputs=outputs)
+    return network

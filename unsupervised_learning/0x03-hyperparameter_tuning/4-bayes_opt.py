@@ -1,70 +1,61 @@
 #!/usr/bin/env python3
-"""contains the class BayesianOptimization"""
-
+"""
+4-bayes_opt.py
+"""
 import numpy as np
 from scipy.stats import norm
-
 GP = __import__('2-gp').GaussianProcess
 
 
 class BayesianOptimization:
-    """performs Bayesian optimization on a noiseless 1D Gaussian process"""
+    """
+    Class that instantiates a Bayesian optimization
+    on a noiseless 1D Gaussian process
+    """
 
-    def __init__(self, f, X_init, Y_init, bounds, ac_samples, l=1,
-                 sigma_f=1, xsi=0.01, minimize=True):
-        """
-        constructor
-        :param f: black-box function to be optimized
-        :param X_init: numpy.ndarray of shape (t, 1)
-            representing the inputs already sampled with the black-box function
-        :param Y_init: numpy.ndarray of shape (t, 1) representing the outputs
-            of the black-box function for each input in X_init
-        :param bounds: tuple of (min, max) representing the bounds
-            of the space in which to look for the optimal point
-        :param ac_samples: number of samples that should be analyzed
-            during acquisition
-        :param l: length parameter for the kernel
-        :param sigma_f: standard deviation given to the output of the
-            black-box function
-        :param xsi: exploration-exploitation factor for acquisition
-        :param minimize: bool determining whether optimization
-            should be performed for minimization (True) or maximization (False)
-        """
+    def __init__(self, f, X_init, Y_init, bounds,
+                 ac_samples, l=1, sigma_f=1, xsi=0.01, minimize=True):
+        """define and initialize variables and methods"""
+
         self.f = f
         self.gp = GP(X_init, Y_init, l, sigma_f)
-        _min, _max = bounds
-        self.X_s = np.linspace(_min, _max, ac_samples).reshape(-1, 1)
+        self.X_s = np.linspace(bounds[0], bounds[1],
+                               num=ac_samples)[..., np.newaxis]
         self.xsi = xsi
         self.minimize = minimize
 
     def acquisition(self):
-        """
-        calculates the next best sample location
-        :return: X_next, EI
-            X_next is a numpy.ndarray of shape (1,)
-                representing the next best sample point
-            EI is a numpy.ndarray of shape (ac_samples,)
-                containing the expected improvement of each potential sample
-        """
-        X = self.gp.X
-        mu_sample, _ = self.gp.predict(X)
+        """function that calculates the next best sample location"""
 
+        # Compute mu and sigma in a call to predict() on gp
         mu, sigma = self.gp.predict(self.X_s)
+        # print("mu:", mu, mu.shape)
+        # print("sigma:", sigma, sigma.shape)
 
-        sigma = sigma.reshape(-1, 1)
+        # Note: sigma of shape (s,)
+        Z = np.zeros(sigma.shape)
+        if self.minimize is True:
+            f_plus = np.min(self.gp.Y)
+            Z_NUM = f_plus - mu - self.xsi
+        else:
+            f_plus = np.max(self.gp.Y)
+            Z_NUM = mu - f_plus - self.xsi
 
-        with np.errstate(divide='warn'):
-            if self.minimize is True:
-                mu_sample_opt = np.amin(self.gp.Y)
-                imp = (mu_sample_opt - mu - self.xsi).reshape(-1, 1)
+        for i in range(sigma.shape[0]):
+            if sigma[i] > 0:
+                Z[i] = Z_NUM[i] / sigma[i]
             else:
-                mu_sample_opt = np.amax(self.gp.Y)
-                imp = (mu - mu_sample_opt - self.xsi).reshape(-1, 1)
+                Z[i] = 0
 
-            Z = imp / sigma
-            EI = imp * norm.cdf(Z) + sigma * norm.pdf(Z)
-            EI[sigma == 0.0] = 0.0
-
+        # Compute the Expected Improvement (EI)
+        EI = np.zeros(sigma.shape)
+        for i in range(sigma.shape[0]):
+            if sigma[i] > 0:
+                EI[i] = Z_NUM[i] * norm.cdf(Z[i]) + sigma[i] * norm.pdf(Z[i])
+            else:
+                EI[i] = 0
         X_next = self.X_s[np.argmax(EI)]
 
-        return X_next, EI.reshape(-1)
+        # print("EI:", EI)
+        # print("self.X_s:", self.X_s)
+        return X_next, EI

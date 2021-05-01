@@ -1,53 +1,62 @@
 #!/usr/bin/env python3
-""" Pooling Back Prop """
+"""
+Backpropagation over Pooling Layer
+"""
 import numpy as np
 
 
 def pool_backward(dA, A_prev, kernel_shape, stride=(1, 1), mode='max'):
-    """ performs back propagation over a pooling layer of a neural network:
+    """function that performs a backpropagation over a convolutional layer"""
+    m = dA.shape[0]
+    h_new = dA.shape[1]
+    w_new = dA.shape[2]
+    c = dA.shape[3]
+    h_prev = A_prev.shape[1]
+    w_prev = A_prev.shape[2]
+    kh = kernel_shape[0]
+    kw = kernel_shape[1]
+    # image_num = np.arange(m)
+    sh = stride[0]
+    sw = stride[1]
+    func = {'max': np.max, 'avg': np.mean}
 
-    @dA: numpy.ndarray of shape (m, h_new, w_new, c_new) containing the
-        partial derivatives with respect to the output of the pooling layer
-        @m: is the number of examples
-        @h_new: is the height of the output
-        @w_new: is the width of the output
-        @c is the number of channels
-    @A_prev: numpy.ndarray of shape (m, h_prev, w_prev, c) containing the
-        output of the previous layer
-        @h_prev: the height of the previous layer
-        @w_prev: the width of the previous layer
-    @kernel_shape is a tuple of (kh, kw) containing the size of the kernel
-        for the pooling
-        @kh is the kernel height
-        @kw is the kernel width
-    @stride: tuple of (sh, sw) containing the strides for the pooling
-        @sh is the stride for the height
-        @sw is the stride for the width
-    @mode is a string containing either max or avg, indicating whether to
-        perform maximum or average pooling, respectively
-    Returns: the partial derivatives with respect to previous layer (dA_prev)
-    """
-    m, h_new, w_new, c = dA.shape
-    _, h_prev, w_prev, _ = A_prev.shape
-    kh, kw = kernel_shape
-    sh, sw = stride
+    dA_prev = np.zeros(shape=A_prev.shape)
 
-    dA_prev = np.zeros_like(A_prev, dtype=dA.dtype)
-    for m_i in range(m):
-        for h in range(h_new):
-            for w in range(w_new):
-                for c_i in range(c):
-                    pool = A_prev[m_i, h*sh:(kh+h*sh), w*sw:(kw+w*sw), c_i]
-                    dA_val = dA[m_i, h, w, c_i]
-                    if mode == 'max':
-                        zero_mask = np.zeros(kernel_shape)
-                        _max = np.amax(pool)
-                        np.place(zero_mask, pool == _max, 1)
-                        dA_prev[m_i, h*sh:(kh+h*sh),
-                                w*sw:(kw+w*sw), c_i] += zero_mask * dA_val
-                    if mode == 'avg':
-                        avg = dA_val/kh/kw
-                        one_mask = np.ones(kernel_shape)
-                        dA_prev[m_i, h*sh:(kh+h*sh),
-                                w*sw:(kw+w*sw), c_i] += one_mask * avg
+    if mode in ['max', 'avg']:
+        for img_num in range(m):
+            for k in range(c):
+                for i in range(h_new):
+                    for j in range(w_new):
+                        window = A_prev[
+                            img_num,
+                            i * sh: i * sh + kh,
+                            j * sw: j * sw + kw,
+                            k
+                        ]
+                        if mode == 'max':
+                            # maxpool returns the max
+                            # derivative of maxpool relative to the max is 1
+                            # derivative relative to any other element is 0
+                            # backpropagate 1 to the unit corresponding to max
+                            # backpropagate 0 for the other units
+                            # given these comments, define a mask of 1 and 0s
+                            mask = np.where(window == np.max(window), 1, 0)
+                            # print(mask)
+                        elif mode == 'avg':
+                            # define a mask weighted by the number of
+                            # elements in the pooling layer (kh * kw)
+                            mask = np.ones(shape=window.shape)
+                            mask /= (kh * kw)
+                            # print(mask)
+                        dA_prev[
+                            img_num,
+                            i * sh: i * sh + kh,
+                            j * sw: j * sw + kw,
+                            k
+                        ] += mask * dA[
+                            img_num,
+                            i,
+                            j,
+                            k
+                        ]
     return dA_prev

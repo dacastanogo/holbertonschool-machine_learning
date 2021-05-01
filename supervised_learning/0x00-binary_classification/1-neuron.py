@@ -1,34 +1,37 @@
 #!/usr/bin/env python3
 """
-class Neuron that defines a single neuron performing binary classification
+Binary Classification
 """
-
-
 import numpy as np
 
 
 class Neuron:
     """
-    Class defines a single neuron performing binary classification
+    define the Neuron class
     """
+
     def __init__(self, nx):
-        if type(nx) is not int:
-            raise TypeError("nx must be an integer")
+        """initialize variables and methods"""
+        if not isinstance(nx, int):
+            raise TypeError('nx must be an integer')
         if nx < 1:
-            raise ValueError("nx must be a positive integer")
-        self.__W = np.ndarray((1, nx))
-        self.__W[0] = np.random.normal(size=nx)
+            raise ValueError('nx must be a positive integer')
+        self.nx = nx
+        self.__W = np.random.normal(loc=0.0, scale=1.0, size=nx).reshape(1, nx)
         self.__b = 0
         self.__A = 0
 
     @property
     def W(self):
+        """getter for W"""
         return self.__W
 
     @property
     def b(self):
+        """getter for b"""
         return self.__b
 
     @property
     def A(self):
+        """getter for A"""
         return self.__A

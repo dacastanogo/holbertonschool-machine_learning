@@ -9,9 +9,7 @@ if __name__ == '__main__':
 
     dataset = np.load('../../supervised_learning/data/animals_1.npz')
     images = dataset['data']
-    np.set_printoptions(threshold=np.nan)
     print(images.shape)
-    #print(images[0])
     kernel = np.array([[[0, 0, 0], [-1, -1, -1], [0, 0, 0]], [[-1, -1, -1], [5, 5, 5], [-1, -1, -1]], [[0, 0, 0], [-1, -1, -1], [0, 0, 0]]])
     images_conv = convolve_channels(images, kernel, padding='valid')
     print(images_conv.shape)

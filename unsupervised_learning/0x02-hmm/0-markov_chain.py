@@ -1,50 +1,39 @@
 #!/usr/bin/env python3
-"""contains the makov_chain function"""
-
+"""
+0-markov_chain.py
+"""
 import numpy as np
 
 
 def markov_chain(P, s, t=1):
     """
-    determines the probability of a markov chain being
+    function that determines the probability of a markov chain being
     in a particular state after a specified number of iterations
-    :param P: square 2D numpy.ndarray of shape (n, n)
-        representing the transition matrix
-        P[i, j] is the probability of transitioning from state i to state j
-        n is the number of states in the markov chain
-    :param s: numpy.ndarray of shape (1, n)
-        representing the probability of starting in each state
-    :param t: number of iterations that the markov chain has been through
-    :return: numpy.ndarray of shape (1, n) representing the probability of
-        being in a specific state after t iterations, or None on failure
     """
-    # P conditions
-    if not isinstance(P, np.ndarray) or len(P.shape) != 2:
-        return None
 
+    if not isinstance(P, np.ndarray) or P.ndim != 2:
+        return None
     if P.shape[0] != P.shape[1]:
         return None
-
-    if np.sum(P, axis=1).all() != 1:
+    if not isinstance(s, np.ndarray) or s.ndim != 2:
         return None
-
-    # s conditions
-    if not isinstance(s, np.ndarray) or len(s.shape) != 2:
+    if s.shape[0] != 1 or s.shape[1] != P.shape[1]:
         return None
-
-    if s.shape[0] != 1 or s.shape[1] != P.shape[0]:
-        return None
-
-    # t condition
     if not isinstance(t, int) or t < 0:
         return None
+    # Ensure the sum of all probabilities is equal to 1
+    # when summing along the rows of the transition matrix "P"
+    n = P.shape[0]
+    if not np.isclose(np.sum(P, axis=1), np.ones(n))[0]:
+        return None
+    # Ensure the sum of all probabilities is equal to 1
+    # when summing over the 1D array of starting probabilities "s"
+    if not np.isclose(np.sum(s, axis=0), [1])[0]:
+        return None
 
-    if t == 0:
-        return s
+    # Perform t np.matmul() operations
+    Pt = np.linalg.matrix_power(P, t)
+    # Perform dot product of a and Pt
+    Ps = np.matmul(s, Pt)
 
-    s_i = np.matmul(s, P)
-
-    for i in range(1, t):
-        s_i = np.matmul(s_i, P)
-
-    return s_i
+    return Ps

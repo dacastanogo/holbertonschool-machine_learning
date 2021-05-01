@@ -1,31 +1,28 @@
 #!/usr/bin/env python3
-"""contains the initialize function"""
-
+"""
+0-initialize.py
+"""
 import numpy as np
 
 
 def initialize(X, k):
-    """
-     initializes cluster centroids for K-means
-    :param X: numpy.ndarray of shape (n, d)
-        containing the dataset that will be used for K-means clustering
-        n is the number of data points
-        d is the number of dimensions for each data point
-    :param k: positive integer containing the number of clusters
-    :return: numpy.ndarray of shape (k, d)
-        containing the initialized centroids for each cluster,
-        or None on failure
-    """
-    if not isinstance(X, np.ndarray) or len(X.shape) != 2:
-        return None
-    if type(k) != int or k <= 0 or k >= X.shape[0]:
+    """function that initializes cluster centroids for K-means"""
+
+    if not isinstance(X, np.ndarray) or X.ndim != 2:
         return None
 
+    # n: number of dada points
+    # d: dimension of each data point
     n, d = X.shape
+    # print(X.shape)
+    # print(X)
 
-    min_val = np.amin(X, axis=0)
-    max_val = np.amax(X, axis=0)
+    if not isinstance(k, int) or k <= 0 or k > n:
+        return None
 
-    centroids = np.random.uniform(min_val, max_val, (k, d))
-
-    return centroids
+    # Sample k centroids from a random.uniform distribution;
+    # output is an array of coordinates
+    mu = np.random.uniform(low=np.min(X, axis=0),
+                           high=np.max(X, axis=0),
+                           size=(k, d))
+    return mu

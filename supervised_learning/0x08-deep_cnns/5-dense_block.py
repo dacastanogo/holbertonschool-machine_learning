@@ -1,40 +1,51 @@
 #!/usr/bin/env python3
 """
-function builds dense block
+Dense Block
 """
-
-
 import tensorflow.keras as K
 
 
 def dense_block(X, nb_filters, growth_rate, layers):
     """
-    X: output from previous layer
-    nb_filters: integer- num of filters
-    growth_rate: growth rate for dense block
-    layers: num of layers in dense block
-    Use bottleneck layers for DenseNet-B
-    weights use he_normal initialization
-    conv layers preceded by batchNorm then ReLU layer
-    Returns: concatenated output, num filters in outputs
+    function that builds a dense block
+    as described in Densely Connected Convolutional Networks
     """
+    initializer = K.initializers.he_normal()
 
-    init = K.initializers.he_normal(seed=None)
+    for i in range(layers):
 
-    for blocks in range(layers):
-        bNorm_1 = K.layers.BatchNormalization()(X)
-        act_1 = K.layers.Activation('relu')(bNorm_1)
-        conv_1x1 = K.layers.Conv2D(filters=growth_rate * 4,
+        l1_norm = K.layers.BatchNormalization()
+        l1_output = l1_norm(X)
+        l1_activ = K.layers.Activation('relu')
+        l1_output = l1_activ(l1_output)
+        l1_layer = K.layers.Conv2D(filters=4*growth_rate,
                                    kernel_size=1,
                                    padding='same',
-                                   kernel_initializer=init)(act_1)
-        bNorm_2 = K.layers.BatchNormalization()(conv_1x1)
-        act_2 = K.layers.Activation('relu')(bNorm_2)
-        # convolutional layer 3x3
-        nextX = K.layers.Conv2D(filters=growth_rate,
-                                kernel_size=3,
-                                padding='same',
-                                kernel_initializer=init)(act_2)
-        X = K.layers.concatenate([X, nextX])
-        nb_filters += growth_rate
-    return X, nb_filters
+                                   kernel_initializer=initializer,
+                                   activation=None)
+        l1_output = l1_layer(l1_output)
+
+        l2_norm = K.layers.BatchNormalization()
+        l2_output = l2_norm(l1_output)
+        l2_activ = K.layers.Activation('relu')
+        l2_output = l2_activ(l2_output)
+        l2_layer = K.layers.Conv2D(filters=growth_rate,
+                                   kernel_size=3,
+                                   padding='same',
+                                   kernel_initializer=initializer,
+                                   activation=None)
+        l2_output = l2_layer(l2_output)
+
+        # channel-wise concatenation
+        # concatenate the outputs of the branches (input & output)
+        X = K.layers.concatenate([X, l2_output])
+
+        # # infer the number of channels in the output (after concat)
+        # nb_filters += growth_rate
+
+    # # activate the combined output
+    # output = K.layers.Activation('relu')(output)
+
+    return X, X.shape[-1]
+    # this return also works:
+    # return X, nb_filters

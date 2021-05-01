@@ -1,71 +1,51 @@
 #!/usr/bin/env python3
 """
-defines a deep neural network performing binary classification
+Binary Classification
 """
-
 import numpy as np
 
 
 class DeepNeuralNetwork:
     """
-    Deep Neural Network Class
+    define the DeepNeuralNetwork class
     """
 
     def __init__(self, nx, layers):
-        """
-        nx is number of input values
-        """
-        if type(nx) is not (int):
-            raise TypeError("nx must be an integer")
+        """initialize variables and methods"""
+        if not isinstance(nx, int):
+            raise TypeError('nx must be an integer')
         if nx < 1:
-            raise ValueError("nx must be a positive integer")
-        """
-        layers list reping num nodes in each layer
-        """
-        if type(layers) is not (list) or len(layers) <= 0:
-            raise TypeError("layers must be a list of positive integers")
+            raise ValueError('nx must be a positive integer')
+        if not isinstance(layers, list) or not len(layers):
+            raise TypeError('layers must be a list of positive integers')
+        self.nx = nx
+        self.layers = layers
         self.__L = len(layers)
-        self.__nx = nx
         self.__cache = {}
         self.__weights = {}
-        for i_lyr in range(self.L):
-            mWts = "W" + str(i_lyr + 1)
-            mB = "b" + str(i_lyr + 1)
-            if type(layers[i_lyr]) is not (int) or layers[i_lyr] < 1:
-                raise TypeError("layers must be a list of positive integers")
-            self.__weights[mB] = np.zeros((layers[i_lyr], 1))
-            if i_lyr == 0:
-                self.__weights[mWts] = (np.random.randn(layers[i_lyr], nx)
-                                        * np.sqrt(2 / nx))
+        for i in range(len(layers)):
+            if not isinstance(layers[i], int) or layers[i] <= 0:
+                raise TypeError('layers must be a list of positive integers')
+            if i == 0:
+                self.__weights['W' + str(i + 1)] = np.random.randn(
+                    layers[i], nx) * np.sqrt(2 / nx)
             else:
-                self.__weights[mWts] = (np.random.randn(layers[i_lyr],
-                                        layers[i_lyr - 1])
-                                        * np.sqrt(2 / layers[i_lyr - 1]))
+                self.__weights['W' + str(i + 1)] = np.random.randn(
+                    layers[i], layers[i - 1]) * np.sqrt(2 / layers[i - 1])
+            self.__weights['b' + str(i + 1)] = np.zeros(
+                layers[i]).reshape(layers[i], 1)
 
     @property
     def L(self):
-        """
-        returns length of layers
-        """
+        """getter for L"""
         return self.__L
 
     @property
-    def nx(self):
-        """
-        returns number of input values
-        """
-        return self.__nx
-
-    @property
     def cache(self):
-        """
-        returns dictionary w/ values of network
-        """
+        """getter for cache"""
         return self.__cache
 
     @property
     def weights(self):
-        """
-        return dictionary w/ weights & bias of network
-        """
+        """getter for weights"""
         return self.__weights

@@ -1,61 +1,74 @@
 #!/usr/bin/env python3
-"""function builds ResNet-50 architecture"""
-
-
+"""
+ResNet-50
+"""
 import tensorflow.keras as K
-
-
 identity_block = __import__('2-identity_block').identity_block
 projection_block = __import__('3-projection_block').projection_block
 
 
 def resnet50():
     """
-    inputdata: shape (224, 224, 3)
-    conv layer inside block follwed by batch norm layer
-     along same channels
-     and a ReLU
-    weights use he_normal initialization
-    Returns: keras model
+    function that builds a ResNet-50 network
+    as described in Deep Residual Learning for Image Recognition (2015)
     """
+    initializer = K.initializers.he_normal()
+    X = K.Input(shape=(224, 224, 3))
 
-    init = K.initializers.he_normal(seed=None)
-    iData = K.layers.Input(shape=(224, 224, 3))
-    out1 = K.layers.Conv2D(filters=64,
-                           kernel_size=7,
-                           strides=2,
-                           padding='same',
-                           kernel_initializer=init)(iData)
-    bNorm_1 = K.layers.BatchNormalization()(out1)
-    act_1 = K.layers.Activation('relu')(bNorm_1)
-    pool_1 = K.layers.MaxPooling2D(pool_size=3,
-                                   strides=2,
-                                   padding='same')(act_1)
+    layer_1 = K.layers.Conv2D(filters=64,
+                              kernel_size=7,
+                              padding='same',
+                              strides=2,
+                              kernel_initializer=initializer,
+                              activation=None)
+    output_1 = layer_1(X)
+    norm_1 = K.layers.BatchNormalization()
+    output_1 = norm_1(output_1)
+    activ_1 = K.layers.Activation('relu')
+    output_1 = activ_1(output_1)
 
-    pout2 = projection_block(pool_1, [64, 64, 256], 1)
-    out3 = identity_block(pout2, [64, 64, 256])
-    out4 = identity_block(out3, [64, 64, 256])
+    layer_2 = K.layers.MaxPool2D(pool_size=3,
+                                 padding='same',
+                                 strides=2)
+    output_2 = layer_2(output_1)
+    output_2 = projection_block(output_2, [64, 64, 256], s=1)
+    output_2 = identity_block(output_2, [64, 64, 256])
+    output_2 = identity_block(output_2, [64, 64, 256])
 
-    pout5 = projection_block(out4, [128, 128, 512])
-    out6 = identity_block(pout5, [128, 128, 512])
-    out7 = identity_block(out6, [128, 128, 512])
-    out8 = identity_block(out7, [128, 128, 512])
+    output_3 = projection_block(output_2, [128, 128, 512], s=2)
+    output_3 = identity_block(output_3, [128, 128, 512])
+    output_3 = identity_block(output_3, [128, 128, 512])
+    output_3 = identity_block(output_3, [128, 128, 512])
 
-    pout9 = projection_block(out8, [256, 256, 1024])
-    out10 = identity_block(pout9, [256, 256, 1024])
-    out11 = identity_block(out10, [256, 256, 1024])
-    out12 = identity_block(out11, [256, 256, 1024])
-    out13 = identity_block(out12, [256, 256, 1024])
-    out14 = identity_block(out13, [256, 256, 1024])
+    output_4 = projection_block(output_3, [256, 256, 1024], s=2)
+    output_4 = identity_block(output_4, [256, 256, 1024])
+    output_4 = identity_block(output_4, [256, 256, 1024])
+    output_4 = identity_block(output_4, [256, 256, 1024])
+    output_4 = identity_block(output_4, [256, 256, 1024])
+    output_4 = identity_block(output_4, [256, 256, 1024])
 
-    pout15 = projection_block(out14, [512, 512, 2048])
-    out16 = identity_block(pout15, [512, 512, 2048])
-    out17 = identity_block(out16, [512, 512, 2048])
+    output_5 = projection_block(output_4, [512, 512, 2048], s=2)
+    output_5 = identity_block(output_5, [512, 512, 2048])
+    output_5 = identity_block(output_5, [512, 512, 2048])
 
-    avgPool = K.layers.AveragePooling2D(pool_size=7,
-                                        strides=None,
-                                        padding='same')(out17)
-    outputs = K.layers.Dense(units=1000,
+    avg_pool = K.layers.AvgPool2D(pool_size=7,
+                                  padding='same',
+                                  strides=None)
+    output_6 = avg_pool(output_5)
+
+    # AvgPool2D reduced data to 1 x 1: no need to flatten here
+    # flatten = K.layers.Flatten()
+    # output_6 = flatten(output_6)
+
+    # here pass 'softmax' activation to the model
+    # prior to compiling/training the model (not recommended)
+    softmax = K.layers.Dense(units=1000,
                              activation='softmax',
-                             kernel_initializer=init)(avgPool)
-    return K.models.Model(iData, outputs)
+                             kernel_initializer=initializer,
+                             kernel_regularizer=K.regularizers.l2())
+    output_7 = softmax(output_6)
+
+    # instantiate a model from the Model class
+    model = K.models.Model(inputs=X, outputs=output_7)
+
+    return model

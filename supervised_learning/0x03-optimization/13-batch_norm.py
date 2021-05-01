@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
-""" Batch Normalization """
+"""
+Batch Normalization
+"""
 import numpy as np
 
 
 def batch_norm(Z, gamma, beta, epsilon):
-    """ normalizes an unactivated output of a
-    neural network using batch normalization
-    """
+    """function that normalizes an unactivated output by batch normalization"""
+    m, stddev = normalization_constants(Z)
+    s = stddev ** 2
+    Z_norm = (Z - m) / np.sqrt(s + epsilon)
+    Z_b_norm = gamma * Z_norm + beta
+    return Z_b_norm
 
-    m = np.mean(Z, axis=0)
-    s = np.var(Z, axis=0)
-    Z_norm = (Z - m) / ((s + epsilon)**(1/2))
-    Z_tilde = gamma*Z_norm + beta
-    return Z_tilde
+
+def normalization_constants(X):
+    """function that calculates the normalization constants of a matrix"""
+    m = X.shape[0]
+    mean = np.sum(X, axis=0) / m
+    stddev = np.sqrt(np.sum((X - mean) ** 2, axis=0) / m)
+    return mean, stddev

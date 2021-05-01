@@ -1,108 +1,142 @@
 #!/usr/bin/env python3
 """
-Write a python script that trains a convolutional
-neural network to classify the CIFAR 10 dataset
+Transfer Learning
+
+The following script can be run on Google Colab
+with the following libraries:
+
+!python3 --version
+Python 3.6.9
+print(tf.__version__)
+2.2.0
+print(K.__version__)
+2.3.0-tf
+print(np.__version__)
+1.18.5
+print(matplotlib.__version__)
+3.2.2
+
+Alternative library versioning may incur errors
+due to compatibility issues between deprecated
+libraries on Google Colab
 """
-
+import tensorflow as tf
 import tensorflow.keras as K
-
-
-def load_data():
-    """ load data: cifar10 """
-    # import data
-    (X_train, Y_train), (X_test, Y_test) = K.datasets.cifar10.load_data()
-
-    # Normalize values to range between 0 & 1
-    # Change integers to floats
-    X_train = X_train.astype('float32')
-    X_test = X_test.astype('float32')
-    X_train = X_train / 255
-    X_test = X_test / 255
-
-    # one hot target values
-    Y_train = K.utils.to_categorical(Y_train, 10)
-    Y_test = K.utils.to_categorical(Y_test, 10)
-    return X_train, Y_train, X_test, Y_test
-
-
-def model_def(Y_train):
-    """ model based on VGG16 architecture for CIFAR10 """
-    # use VGG16 for bottlensck features
-    vgg_bf = K.applications.vgg16.VGG16(include_top=False,
-                                        weights='imagenet',
-                                        input_tensor=K.Input(
-                                            shape=(32, 32, 3)),
-                                        classes=Y_train.shape[1])
-    for layer in vgg_bf.layers:
-        # get layers before fully connected layers
-        if (layer.name[0:5] != 'block'):
-            layer.trainiable = False
-
-    modelY = K.Sequential()
-
-    modelY.add(vgg_bf)
-    modelY.add(K.layers.Flatten())
-    modelY.add(K.layers.Dense(256, activation='relu',
-                              kernel_initializer='he_uniform'))
-    modelY.add(K.layers.Dense(10, activation="softmax"))
-    modelY.summary()
-    return modelY
-
-
-def compile_model(new_cnn):
-    """ compile mode """
-    """ compile model separate, vgg_bf classes=Y_train.shape[1] """
-
-    opt = K.optimizers.SGD(lr=0.001, momentum=0.9)
-    new_cnn.compile(optimizer=opt,
-                    loss='categorical_crossentropy',
-                    metrics=['accuracy'])
-    return new_cnn
-
-
-def train_model(new_cnn, X_train, Y_train, X_test, Y_test, batch, epochs):
-
-    dataGen = K.preprocessing.image.ImageDataGenerator(rotation_range=15,
-                                                       width_shift_range=0.1,
-                                                       height_shift_range=0.1,
-                                                       horizontal_flip=True)
-    dataGen.fit(X_train)
-    return new_cnn.fit_generator(dataGen.flow(X_train, Y_train,
-                                              batch_size=batch),
-                                 steps_per_epoch=X_train.shape[0] / batch,
-                                 epochs=epochs,
-                                 verbose=1,
-                                 validation_data=(X_test, Y_test))
+import numpy as np
 
 
 def preprocess_data(X, Y):
-    """
-    X: numpy.ndarray, shape(m, 32, 32, 3) containing CIFAR 10 data
-    m: number of data points
-    Y: numpy.ndarray, shape(m, ) containing the CIFAR 10 labels for X
-    X_p: numpy.ndarray containing preprocessed X
-    Y_p: numpy.ndarray containing preprocessed Y
-    Return: X_p, Y_p
-    trained model:  save in directory as cifar10.h5
-                    should be compiled
-                    validation accuracy of 88% or higher
-    file script should not run when file is imported
-    """
-
-    X_p = K.applications.vgg16.preprocess_input(X)
-    Y_p = K.utils.to_categorical(Y, num_classes=10)
-    return (X_p, Y_p)
+    """function that pre-processes the data"""
+    X = K.applications.densenet.preprocess_input(X)
+    Y = K.utils.to_categorical(Y)
+    return X, Y
 
 
 if __name__ == '__main__':
-    # step by step make
 
-    batch = 50
-    epochs = 50
+    # load the Cifar10 dataset, 50,000 training images and 10,000 test images
+    (x_train, y_train), (x_test, y_test) = K.datasets.cifar10.load_data()
 
-    X_train, Y_train, X_test, Y_test = load_data()
-    t_model = model_def(Y_train)
-    t_model = compile_model(t_model)
-    history = train_model(t_model, X_train, Y_train,
-                          X_test, Y_test, batch, epochs)
-    t_model.save('cifar10.h5')
+    # preprocess the data using the application's preprocess_input method
+    # and convert the labels to one-hot encodings
+    x_train, y_train = preprocess_data(x_train, y_train)
+    x_test, y_test = preprocess_data(x_test, y_test)
+
+    # instantiate a pre-trained model from the Keras API
+    input_tensor = K.Input(shape=(32, 32, 3))
+
+    # upsampling helps improve the validation accuracy to some extent
+    # (insufficient here):
+    # output = K.layers.UpSampling2D(size=(2, 2),
+    #                                interpolation='nearest')(input_tensor)
+
+    # another approach: resize images to the image size upon which the network
+    # was pre-trained:
+    resized_images = K.layers.Lambda(
+        lambda image: tf.image.resize(image, (224, 224)))(input_tensor)
+
+    base_model = K.applications.DenseNet201(include_top=False,
+                                            weights='imagenet',
+                                            input_tensor=resized_images,
+                                            input_shape=(224, 224, 3),
+                                            pooling='max',
+                                            classes=1000)
+    output = base_model.layers[-1].output
+    base_model = K.models.Model(inputs=input_tensor, outputs=output)
+
+    # extract the bottleneck features (output feature maps)
+    # from the pre-trained network (here, base-model)
+    train_datagen = K.preprocessing.image.ImageDataGenerator()
+    train_generator = train_datagen.flow(x_train,
+                                         y_train,
+                                         batch_size=32,
+                                         shuffle=False)
+    features_train = base_model.predict(train_generator)
+
+    # repeat the same operation with the test data (here used for validation)
+    val_datagen = K.preprocessing.image.ImageDataGenerator()
+    val_generator = val_datagen.flow(x_test,
+                                     y_test,
+                                     batch_size=32,
+                                     shuffle=False)
+    features_valid = base_model.predict(val_generator)
+
+    # create a densely-connected head classifier
+
+    # weights are initialized as per the he et al. method
+    initializer = K.initializers.he_normal()
+    input_tensor = K.Input(shape=features_train.shape[1])
+
+    layer_256 = K.layers.Dense(units=256,
+                               activation='elu',
+                               kernel_initializer=initializer,
+                               kernel_regularizer=K.regularizers.l2())
+    output = layer_256(input_tensor)
+    dropout = K.layers.Dropout(0.5)
+    output = dropout(output)
+
+    softmax = K.layers.Dense(units=10,
+                             activation='softmax',
+                             kernel_initializer=initializer,
+                             kernel_regularizer=K.regularizers.l2())
+    output = softmax(output)
+
+    model = K.models.Model(inputs=input_tensor, outputs=output)
+
+    # compile the densely-connected head classifier
+    model.compile(optimizer=K.optimizers.Adam(learning_rate=1e-4),
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+
+    # reduce learning rate when val_accuracy has stopped improving
+    lr_reduce = K.callbacks.ReduceLROnPlateau(monitor='val_accuracy',
+                                              factor=0.6,
+                                              patience=2,
+                                              verbose=1,
+                                              mode='max',
+                                              min_lr=1e-7)
+
+    # stop training when val_accuracy has stopped improving
+    early_stop = K.callbacks.EarlyStopping(monitor='val_accuracy',
+                                           patience=3,
+                                           verbose=1,
+                                           mode='max')
+
+    # callback to save the Keras model and (best) weights obtained
+    # on an epoch basis
+    checkpoint = K.callbacks.ModelCheckpoint('cifar10.h5',
+                                             monitor='val_accuracy',
+                                             verbose=1,
+                                             save_weights_only=False,
+                                             save_best_only=True,
+                                             mode='max',
+                                             save_freq='epoch')
+
+    # train the densely-connected head classifier
+    history = model.fit(features_train, y_train,
+                        batch_size=32,
+                        epochs=20,
+                        verbose=1,
+                        callbacks=[lr_reduce, early_stop, checkpoint],
+                        validation_data=(features_valid, y_test),
+                        shuffle=True)

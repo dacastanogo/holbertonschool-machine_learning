@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-""" Adam """
+"""
+Adam
+"""
 import numpy as np
 
 
 def update_variables_Adam(alpha, beta1, beta2, epsilon, var, grad, v, s, t):
-    """ updates a variable in place using the Adam optimization algorithm """
-    Vdv = beta1*v + (1-beta1)*grad
-    Sdv = beta2*s + (1-beta2)*(grad)**2
-
-    Vdv_h = Vdv / (1-(beta1**t))
-    Sdv_h = Sdv / (1-(beta2**t))
-    var = var - alpha*(Vdv_h/((Sdv_h**(1/2))+epsilon))
-    return var, Vdv, Sdv
+    """function that implements the Adam optimization algorithm"""
+    v = beta1 * v + (1 - beta1) * grad
+    # introduce bias correction
+    v_corr = v / (1 - (beta1 ** t))
+    s = beta2 * s + (1 - beta2) * (grad ** 2)
+    # introduce bias correction
+    s_corr = s / (1 - (beta2 ** t))
+    var -= alpha * (v_corr / (np.sqrt(s_corr) + epsilon))
+    return var, v, s

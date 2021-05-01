@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-""" Normalize """
-import numpy as np
+"""
+Normalize
+"""
 
 
 def normalize(X, m, s):
-    """  normalizes (standardizes) a matrix """
-    z = (X - m)/s
-    return z
+    """function that normalizes a matrix"""
+    X_norm = (X - m) / s
+    return X_norm

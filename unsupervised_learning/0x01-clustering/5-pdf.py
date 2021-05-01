@@ -1,48 +1,44 @@
 #!/usr/bin/env python3
-"""contains the pdf function"""
-
+"""
+5-pdf.py
+"""
 import numpy as np
 
 
 def pdf(X, m, S):
     """
-    calculates the probability density function of a Gaussian distribution
-    :param X: numpy.ndarray of shape (n, d)
-        containing the data points whose PDF should be evaluated
-    :param m: numpy.ndarray of shape (d,)
-        containing the mean of the distribution
-    :param S: numpy.ndarray of shape (d, d)
-        containing the covariance of the distribution
-    :return: P, or None on failure
-        P is a numpy.ndarray of shape (n,)
-            containing the PDF values for each data point
+    function that calculates the probability density function
+    of a Gaussian distribution
     """
-    if not isinstance(X, np.ndarray) or len(X.shape) != 2:
+
+    if not isinstance(X, np.ndarray) or X.ndim != 2:
         return None
-    if not isinstance(m, np.ndarray) or len(m.shape) != 1:
+    if not isinstance(m, np.ndarray) or m.ndim != 1:
         return None
-    if not isinstance(S, np.ndarray) or len(S.shape) != 2:
+    if not isinstance(S, np.ndarray) or S.ndim != 2:
         return None
     if X.shape[1] != m.shape[0] or X.shape[1] != S.shape[0]:
         return None
     if S.shape[0] != S.shape[1]:
         return None
 
+    # n: number of dada points
+    # d: dimension of each data point
     n, d = X.shape
 
-    Q = np.linalg.inv(S)
-    det = np.linalg.det(S)
+    # Compute the pdf
+    A = 1.0 / np.sqrt(((2 * np.pi) ** d) * np.linalg.det(S))
+    # The following operation is computationally more expensives than need be:
+    # B = np.exp(-0.5 * np.diag(np.linalg.multi_dot([(X - m),
+    #                                                np.linalg.inv(S),
+    #                                                (X - m).T])))
+    # Instead minimize computation cost by applying the following operation:
+    # (provided for the optimization of this task)
+    M = np.matmul(np.linalg.inv(S), (X - m).T)
+    B = np.exp(-0.5 * np.sum((X - m).T * M, axis=0))
+    PDF = A * B
 
-    den = np.sqrt(((2 * np.pi) ** d) * det)
+    # All values in P should have a minimum value of 1e-300
+    PDF = np.maximum(PDF, 1e-300)
 
-    diff = X.T - m[:, np.newaxis]
-
-    M1 = np.matmul(Q, diff)
-    M2 = np.sum(diff * M1, axis=0)
-    M3 = - M2 / 2
-
-    density = np.exp(M3) / den
-
-    density = np.where(density < 1e-300, 1e-300, density)
-
-    return density
+    return PDF

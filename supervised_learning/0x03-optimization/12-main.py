@@ -25,7 +25,7 @@ if __name__ == '__main__':
         loss = tf.get_collection('loss')[0]
         global_step = tf.Variable(0, trainable=False)
         alpha = 0.1
-        alpha = learning_rate_decay(alpha, 1, global_step, 10)
+        alpha = learning_rate_decay(alpha, 1, global_step, 1)
         train_op = tf.train.GradientDescentOptimizer(alpha).minimize(loss, global_step=global_step)
         init = tf.global_variables_initializer()
         sess.run(init)

@@ -11,6 +11,10 @@ NST = __import__('0-neural_style').NST
 if __name__ == '__main__':
     style_image = mpimg.imread("starry_night.jpg")
     content_image = mpimg.imread("golden_gate.jpg")
+    # print(style_image)
+    # print()
+    # print()
+    # print(content_image)
 
     print(NST.style_layers)
     print(NST.content_layer)
@@ -18,9 +22,9 @@ if __name__ == '__main__':
     scaled_style = nst.scale_image(style_image)
     scaled_content = nst.scale_image(content_image)
     print(type(nst.style_image), nst.style_image.shape, np.min(nst.style_image),
-               np.max(nst.style_image))
+          np.max(nst.style_image))
     print(type(nst.content_image), nst.content_image.shape, np.min(nst.content_image),
-               np.max(nst.content_image))
+          np.max(nst.content_image))
     print(nst.alpha)
     print(nst.beta)
     print(tf.executing_eagerly())

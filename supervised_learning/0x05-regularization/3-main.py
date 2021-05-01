@@ -18,6 +18,8 @@ if __name__ == '__main__':
     Y_train = lib['Y_train']
     X_train = X_train_3D.reshape((X_train_3D.shape[0], -1))
     Y_train_oh = one_hot(Y_train, 10)
+    # print(X_train.shape)
+    # print(Y_train.shape)
 
     tf.set_random_seed(0)
     x = tf.placeholder(tf.float32, shape=[None, 784])
@@ -25,7 +27,11 @@ if __name__ == '__main__':
     h1 = l2_reg_create_layer(x, 256, tf.nn.tanh, 0.1)
     y_pred = l2_reg_create_layer(x, 10, None, 0.)
     cost = tf.losses.softmax_cross_entropy(y, y_pred)
+    # print(type(cost))
     l2_cost = l2_reg_cost(cost)
+    # print(type(l2_cost))
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         print(sess.run(l2_cost, feed_dict={x: X_train, y: Y_train_oh}))
+        # print(type(sess.run(y_pred, feed_dict={x: X_train, y: Y_train_oh})))
+        # print(sess.run(y_pred, feed_dict={x: X_train, y: Y_train_oh}).shape)

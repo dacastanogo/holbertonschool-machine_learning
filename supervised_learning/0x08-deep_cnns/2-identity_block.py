@@ -1,36 +1,51 @@
 #!/usr/bin/env python3
 """
-function builds identity block
+Identity Block
 """
-
 import tensorflow.keras as K
 
 
 def identity_block(A_prev, filters):
     """
-    function builds identity block
-    filters: is tuple
-    convolution inside block followed by batch norm along
-       channels axis
-    weights use he_normal initilization
-    Returns: activated outpit of identity block
+    function that builds an identity block
+    as described in Deep Residual Learning for Image Recognition (2015)
     """
-    F11, F3, F12 = filters
-    init = K.initializers.he_normal(seed=None)
+    initializer = K.initializers.he_normal()
 
-    out1 = K.layers.Conv2D(filters=F11, kernel_size=1, padding='same',
-                           kernel_initializer=init)(A_prev)
-    bNorm_1 = K.layers.BatchNormalization()(out1)
-    act_1 = K.layers.Activation('relu')(bNorm_1)
+    F11_layer = K.layers.Conv2D(filters=filters[0],
+                                kernel_size=1,
+                                padding='same',
+                                kernel_initializer=initializer,
+                                activation=None)
+    F11_output = F11_layer(A_prev)
+    F11_norm = K.layers.BatchNormalization()
+    F11_output = F11_norm(F11_output)
+    F11_activ = K.layers.Activation('relu')
+    F11_output = F11_activ(F11_output)
 
-    out2 = K.layers.Conv2D(filters=F3, kernel_size=3, padding='same',
-                           kernel_initializer=init)(act_1)
-    bNorm_2 = K.layers.BatchNormalization()(out2)
-    act_2 = K.layers.Activation('relu')(bNorm_2)
+    F3_layer = K.layers.Conv2D(filters=filters[1],
+                               kernel_size=3,
+                               padding='same',
+                               kernel_initializer=initializer,
+                               activation=None)
+    F3_output = F3_layer(F11_output)
+    F3_norm = K.layers.BatchNormalization()
+    F3_output = F3_norm(F3_output)
+    F3_activ = K.layers.Activation('relu')
+    F3_output = F3_activ(F3_output)
 
-    out3 = K.layers.Conv2D(filters=F12, kernel_size=1, padding='same',
-                           kernel_initializer=init)(act_2)
-    bNorm_3 = K.layers.BatchNormalization()(out3)
+    F12_layer = K.layers.Conv2D(filters=filters[2],
+                                kernel_size=1,
+                                padding='same',
+                                kernel_initializer=initializer,
+                                activation=None)
+    F12_output = F12_layer(F3_output)
+    F12_norm = K.layers.BatchNormalization()
+    F12_output = F12_norm(F12_output)
 
-    addLayers = K.layers.Add()([bNorm_3, A_prev])
-    return K.layers.Activation('relu')(addLayers)
+    # add input (residual connection) and output
+    output = K.layers.Add()([F12_output, A_prev])
+    # activate the combined output
+    output = K.layers.Activation('relu')(output)
+
+    return output

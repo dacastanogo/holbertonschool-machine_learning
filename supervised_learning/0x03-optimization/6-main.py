@@ -33,7 +33,6 @@ if __name__ == '__main__':
                 cost = sess.run(loss, feed_dict={x:X, y:Y_oh})
                 print('Cost after {} iterations: {}'.format(i, cost))
             sess.run(train_op, feed_dict={x:X, y:Y_oh})
-            print("holA"*50)
         cost, Y_pred_oh = sess.run((loss, y_pred), feed_dict={x:X, y:Y_oh})
         print('Cost after {} iterations: {}'.format(1000, cost))
 

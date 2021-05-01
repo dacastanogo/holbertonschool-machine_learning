@@ -1,148 +1,138 @@
 #!/usr/bin/env python3
 """
-Defines a neural network
+Binary Classification
 """
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class NeuralNetwork:
     """
-    Neural Network Class
+    define the NeuralNetwork class
     """
+
     def __init__(self, nx, nodes):
-        """
-        nx is input values; nodes are num nodes in hidden layer
-        """
-        if type(nx) is not (int):
-            raise TypeError("nx must be an integer")
+        """initialize variables and methods"""
+        if not isinstance(nx, int):
+            raise TypeError('nx must be an integer')
         if nx < 1:
-            raise ValueError("nx must be a positive integer")
-        if type(nodes) is not (int):
-            raise TypeError("nodes must be an integer")
+            raise ValueError('nx must be a positive integer')
+        if not isinstance(nodes, int):
+            raise TypeError('nodes must be an integer')
         if nodes < 1:
-            raise ValueError("nodes must be a positive integer")
-        self.__W1 = np.random.normal(size=(nodes, nx))
-        self.__b1 = np.zeros((nodes, 1))
+            raise ValueError('nodes must be a positive integer')
+        self.nx = nx
+        self.nodes = nodes
+        self.__W1 = np.random.normal(loc=0.0, scale=1.0, size=(nodes, nx))
+        self.__b1 = np.zeros(nodes).reshape(nodes, 1)
         self.__A1 = 0
-        self.__W2 = np.random.normal(size=(1, nodes))
+        self.__W2 = np.random.normal(
+            loc=0.0, scale=1.0, size=nodes).reshape(1, nodes)
         self.__b2 = 0
         self.__A2 = 0
 
     @property
     def W1(self):
-        """
-        return weight vector for hidden layer
-        """
+        """getter for W1"""
         return self.__W1
 
     @property
-    def W2(self):
-        """
-        return weight vector output neuron
-        """
-        return self.__W2
-
-    @property
     def b1(self):
-        """
-        return bias for hidden layer
-        """
+        """getter for b1"""
         return self.__b1
 
     @property
-    def b2(self):
-        """
-        return bias for output neuron
-        """
-        return self.__b2
-
-    @property
     def A1(self):
-        """
-        return activated output hidden layer
-        """
+        """getter for A1"""
         return self.__A1
 
     @property
+    def W2(self):
+        """getter for W2"""
+        return self.__W2
+
+    @property
+    def b2(self):
+        """getter for b2"""
+        return self.__b2
+
+    @property
     def A2(self):
-        """
-        return activated output for output neuron
-        """
+        """getter for A2"""
         return self.__A2
 
     def forward_prop(self, X):
-        """
-        calculates forward propagation of Neural Network
-        """
-        M = np.dot(self.__W1, X) + self.__b1
-        self.__A1 = 1.0/(1.0 + np.exp(-M))
-        self.__A2 = (np.dot(self.__W2, self.__A1) + self.__b2)
-        self.__A2 = 1.0/(1.0 + np.exp(-1 * self.A2))
-        return self.__A1, self.__A2
+        """forward propagation function"""
+        Z1 = np.matmul(self.W1, X) + self.b1
+        self.__A1 = self.sigmoid(Z1)
+        Z2 = np.matmul(self.W2, self.A1) + self.b2
+        self.__A2 = self.sigmoid(Z2)
+        return self.A1, self.A2
+
+    def sigmoid(self, Y):
+        """define the sigmoid activation function"""
+        return 1 / (1 + np.exp(-1 * Y))
 
     def cost(self, Y, A):
-        """
-        cost of model using logistic regression
-        """
-        return -(Y * np.log(A) + (1 - Y) * np.log(1.0000001 - A)).mean()
+        """define the cost function"""
+        m = Y.shape[1]
+        return (-1 / m) * np.sum(
+            Y * np.log(A) + (1 - Y) * (np.log(1.0000001 - A)))
 
     def evaluate(self, X, Y):
-        """
-        evaluate Neural Network predictions
-        """
-        return (self.forward_prop(X)[1].round().astype(int),
-                self.cost(Y, self.__A2))
+        """function that evaluates the nn's predictions"""
+        A1, A2 = self.forward_prop(X)
+        cost = self.cost(Y, A2)
+        return np.where(A2 >= 0.5, 1, 0), cost
 
     def gradient_descent(self, X, Y, A1, A2, alpha=0.05):
-        """calculates one pass gradient descent on the NN"""
-        dz2 = A2 - Y
-        dz1 = np.matmul(self.__W2.T, dz2) * A1 * (1 - A1)
-        self.__W1 = self.__W1 - alpha * np.matmul(dz1, X.T) / X.shape[1]
-        self.__W2 = self.__W2 - alpha * np.matmul(dz2, A1.T) / A1.shape[1]
-        self.__b1 = self.__b1 - alpha * dz1.mean(axis=1, keepdims=True)
-        self.__b2 = self.__b2 - alpha * dz2.mean(axis=1, keepdims=True)
+        """function that calculates one pass of gradient descent"""
+        dZ2 = A2 - Y
+        m = Y.shape[1]
+        dW2 = (1 / m) * np.matmul(dZ2, A1.T)
+        db2 = (1 / m) * np.sum(dZ2, axis=1, keepdims=True)
+        dZ1 = np.multiply(np.matmul(self.W2.T, dZ2), (A1 * (1 - A1)))
+        dW1 = (1 / m) * np.matmul(dZ1, X.T)
+        db1 = (1 / m) * np.sum(dZ1, axis=1, keepdims=True)
+        self.__W2 -= alpha * dW2
+        self.__b2 -= alpha * db2
+        self.__W1 -= alpha * dW1
+        self.__b1 -= alpha * db1
 
-    def train(self, X, Y, iterations=5000, alpha=0.05,
-              verbose=True, graph=True, step=100):
-        """
-        trains the Neural Network
-        """
-        if type(iterations) is not (int):
-            raise TypeError("iterations must be an integer")
+    def train(self, X, Y, iterations=5000, alpha=0.05, verbose=True,
+              graph=True, step=100):
+        """function that trains the neuron"""
+        if not isinstance(iterations, int):
+            raise TypeError('iterations must be an integer')
         if iterations <= 0:
-            raise ValueError("iterations must be a positive integer")
-        if type(alpha) is not (float):
-            raise TypeError("alpha must be a float")
+            raise ValueError('iterations must be a positive integer')
+        if not isinstance(alpha, float):
+            raise TypeError('alpha must be a float')
         if alpha <= 0:
-            raise ValueError("alpha must be positive")
+            raise ValueError('alpha must be positive')
+
         if verbose is True or graph is True:
-            if type(step) is not (int):
-                raise TypeError("step must be an integer")
-            if step < 0 and step > iterations:
-                raise ValueError("step must be positive and <= iterations")
-        num_itr = 0
-        num_cost = []
-        num_pos = []
-        A1, A2 = self.forward_prop(X)
-        for num_itr in range(0, iterations):
-            if verbose and (num_itr != step):
-                print("Cost after {} iterations: {}"
-                      .format(num_itr, self.cost(Y, A2)))
-                if graph:
-                    num_cost.append(self.cost(Y, A2))
-                    num_pos.append(num_itr)
+            if not isinstance(step, int):
+                raise TypeError('step must be an integer')
+            if step <= 0 or step > iterations:
+                raise ValueError('step must be positive and <= iterations')
+        cost_data = []
+        step_data = []
+        for i in range(iterations + 1):
+            A1, A2 = self.forward_prop(X)
+            # backpropagate except for last iteration (5000):
+            if i != iterations:
                 self.gradient_descent(X, Y, A1, A2, alpha)
-                num_itr += 1
-            self.forward_prop(X)
-            if verbose:
-                print("cost after {} iterations: {}"
-                      .format(num_itr, self.cost(Y, self.__A2)))
-            if graph:
-                plt.plot(num_pos, num_cost)
-                plt.xlim(0, iterations)
-                plt.xlabel("iteration")
-                plt.ylabel("cost")
-                plt.title("Training Cost")
-            return self.evaluate(X, Y)
+            if (i % step) == 0:
+                cost = self.cost(Y, A2)
+                cost_data += [cost]
+                step_data += [i]
+                if verbose is True:
+                    print('Cost after {} iterations: {}'.format(i, cost))
+        if graph is True:
+            plt.plot(step_data, cost_data, 'b')
+            plt.xlabel('iteration')
+            plt.ylabel('cost')
+            plt.title('Training Cost')
+            plt.show()
+        return np.where(A2 >= 0.5, 1, 0), cost

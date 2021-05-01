@@ -1,67 +1,76 @@
 #!/usr/bin/env python3
-"""contains the class GaussianProcess"""
-
+"""
+1-gp.py
+"""
 import numpy as np
 
 
 class GaussianProcess:
-    """represents a noiseless 1D Gaussian process"""
+    """Class that instantiates a noiseless 1D Gaussian process"""
 
     def __init__(self, X_init, Y_init, l=1, sigma_f=1):
-        """
-        constructor
-        :param X_init: numpy.ndarray of shape (t, 1)
-            representing the inputs already sampled with the black-box function
-        :param Y_init: numpy.ndarray of shape (t, 1)
-            representing the outputs of the black-box function for each input
-            in X_init
-            t is number of initial samples
-        :param l: length parameter for the kernel
-        :param sigma_f: standard deviation given to the output of
-            the black-box function
-        """
+        """define and initialize variables and methods"""
+
         self.X = X_init
         self.Y = Y_init
         self.l = l
         self.sigma_f = sigma_f
-        self.K = self.kernel(X_init, X_init)
+        self.K = self.kernel(self.X, self.X)
 
     def kernel(self, X1, X2):
         """
-        calculates the covariance kernel matrix between two matrices:
-        :param X1: numpy.ndarray of shape (m, 1)
-        :param X2: numpy.ndarray of shape (n, 1)
-        :return: covariance kernel matrix as a numpy.ndarray of shape (m, n)
+        function that calculates the covariance kernel matrix
+        between two matrices
         """
-        sqdist = np.sum(X1 ** 2, 1).reshape(-1, 1) \
-            + np.sum(X2 ** 2, 1) \
-            - 2 * np.dot(X1, X2.T)
-        return self.sigma_f ** 2 * np.exp(-0.5 / self.l ** 2 * sqdist)
+
+        # Composition of the constant kernel with the
+        # radial basis function (RBF) kernel, which encodes
+        # for smoothness of functions (i.e. similarity of
+        # inputs in space corresponds to the similarity of outputs)
+
+        # Two hyperparameters: signal variance (sigma_f**2) and lengthscale l
+        # K: Constant * RBF kernel function
+
+        # Compute "dist_sq" (helper to K)
+        # X1: shape (m, 1), m points of 1 coordinate
+        # X2: shape (n, 1), n points of 1 coordinate
+        a = np.sum(X1 ** 2, axis=1, keepdims=True)
+        b = np.sum(X2 ** 2, axis=1, keepdims=True)
+        c = np.matmul(X1, X2.T)
+        # Note: Ensure a and b are aligned with c: shape (m, n)
+        # -> b should be a row vector for the subtraction with c
+        dist_sq = a + b.reshape(1, -1) - 2 * c
+        # print("dist_sq:", dist_sq)
+
+        # K: covariance kernel matrix of shape (m, n)
+        K = (self.sigma_f ** 2) * np.exp(-0.5 * (1 / (self.l ** 2)) * dist_sq)
+
+        return K
 
     def predict(self, X_s):
         """
-        predicts the mean and standard deviation of points in
-        a Gaussian process
-        :param X_s: numpy.ndarray of shape (s, 1)
-            containing all of the points whose mean and
-            standard deviation should be calculated
-            s is the number of sample points
-        :return: mu, sigma
-            mu is a numpy.ndarray of shape (s,)
-                containing the mean for each point in X_s, respectively
-            sigma is a numpy.ndarray of shape (s,)
-                containing the standard deviation for each point in X_s
+        function that predicts the mean and standard deviation of points
+        in a Gaussian process
         """
+
+        # Call K
         K = self.K
+        # Compute K_s in a call to kernel()
         K_s = self.kernel(self.X, X_s)
+        # Compute K_ss in a call to kernel()
         K_ss = self.kernel(X_s, X_s)
+        # Call Y
+        Y = self.Y
+
+        # The prediction follows a normal distribution completely
+        # described by the mean "mu" and the covariance "sigma**2"
+
+        # Compute the mean "mu"
         K_inv = np.linalg.inv(K)
+        mu_s = np.matmul(np.matmul(K_s.T, K_inv), Y).reshape(-1)
+        # Compute the covariance matrix "cov_s"
+        cov_s = K_ss - np.matmul(np.matmul(K_s.T, K_inv), K_s)
+        # Infer the standard deviation "sigma"
+        sigma = np.diag(cov_s)
 
-        # mean
-        mu_s = K_s.T.dot(K_inv).dot(self.Y)
-        mu_s = mu_s.reshape(-1)
-
-        # variance from covariance
-        cov_s = K_ss - K_s.T.dot(K_inv).dot(K_s)
-        var_s = np.diag(cov_s)
-        return mu_s, var_s
+        return mu_s, sigma

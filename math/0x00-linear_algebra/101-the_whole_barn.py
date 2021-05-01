@@ -1,42 +1,33 @@
 #!/usr/bin/env python3
-"""Adds two matrices
-"""
-
-
-def shape(matrix):
-    """
-    Getting shape of a matrix
-    Return array with dimensions
-    """
-    shape = [len(matrix)]
-    while type(matrix[0]) == list:
-        shape.append(len(matrix[0]))
-        matrix = matrix[0]
-    return shape
-
-
-def shape_recursion(mat1, mat2):
-    """
-    Getting shape of a matrix
-    Return array with dimensions
-    """
-    add = []
-    for i in range(len(mat1)):
-        if type(mat1[i]) == list:
-            add.append(shape_recursion(mat1[i], mat2[i]))
-        else:
-            add.append(mat1[i] + mat2[i])
-    return add
+"""define new function"""
 
 
 def add_matrices(mat1, mat2):
-    """
-    Adds two matrices
-    """
-    shape1 = shape(mat1)
-    shape2 = shape(mat2)
-    tempshape = shape1
-    if shape1 != shape2:
+    """function that adds two matrices"""
+    if matrix_shape(mat1) != matrix_shape(mat2):
         return None
-    add = shape_recursion(mat1, mat2)
-    return add
+    if len(matrix_shape(mat1)) == 1:
+        return [mat1[i] + mat2[i] for i in range(len(mat1))]
+    elif len(matrix_shape(mat1)) == 2:
+        return [[mat1[i][j] + mat2[i][j] for j in range(len(mat1[0]))]
+                for i in range(len(mat1))]
+    # elif len(matrix_shape(mat1)) == 3:
+    #     return [[[mat1[i][j][k] + mat2[i][j][k]
+    # for k in range(len(mat1[0][0]))]
+    # for j in range(len(mat1[0]))] for i in range(len(mat1))]
+    # elif len(matrix_shape(mat1)) == 4:
+    #     return [[[[mat1[i][j][k][l] + mat2[i][j][k][l]
+    # for l in range(len(mat1[0][0][0]))]
+    # for k in range(len(mat1[0][0]))] for j in range(len(mat1[0]))]
+    # for i in range(len(mat1))]
+    elif len(matrix_shape(mat1)) >= 3:
+        return [add_matrices(mat1[i], mat2[i]) for i in range(len(mat1))]
+
+
+def matrix_shape(matrix):
+    """function that returns the shape of a matrix"""
+    shape = [len(matrix)]
+    while isinstance(matrix[0], list):
+        shape.append(len(matrix[0]))
+        matrix = matrix[0]
+    return shape

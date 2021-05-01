@@ -32,17 +32,14 @@ for i in range(10):
     plt.imshow(reconstructed[i])
 plt.show()
 
+
 l1 = np.linspace(-3, 3, 25)
 l2 = np.linspace(-3, 3, 25)
 L = np.stack(np.meshgrid(l1, l2, sparse=False, indexing='ij'), axis=2)
 G = decoder.predict(L.reshape((-1, 2)), batch_size=125)
 
-fig, axs = plt.subplots(nrows=25, ncols=25, figsize=(12, 12))
-
-for i in range(25 * 25):
+for i in range(25*25):
     ax = plt.subplot(25, 25, i + 1)
     ax.axis('off')
-    ax.imshow(G[i].reshape((28, 28)))
-
-plt.tight_layout()
+    plt.imshow(G[i].reshape((28, 28)))
 plt.show()

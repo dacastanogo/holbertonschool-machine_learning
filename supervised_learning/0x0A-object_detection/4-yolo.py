@@ -1,209 +1,376 @@
 #!/usr/bin/env python3
-""" Process Outputs """
-import tensorflow.keras as K
+"""
+Process Outputs
+"""
+import tensorflow as tf
 import numpy as np
-import glob
 import cv2
+import os
+# from google.colab.patches import cv2_imshow
 
 
 class Yolo:
-    """ YOYO V3"""
+    """define the YOLO class"""
+
     def __init__(self, model_path, classes_path, class_t, nms_t, anchors):
-        """ init """
-        self.model = K.models.load_model(model_path)
+        """define and initialize attributes and variables"""
+        self.model = tf.keras.models.load_model(model_path)
         with open(classes_path, 'r') as f:
-            self.class_names = [line.strip() for line in f]
+            self.class_names = [class_name[:-1] for class_name in f]
         self.class_t = class_t
         self.nms_t = nms_t
         self.anchors = anchors
 
-    def sigmoid(self, x):
-        """ calculates sigmoid function """
-        return 1 / (1 + np.exp(-x))
-
     def process_outputs(self, outputs, image_size):
-        """ - outputs is a list of numpy.ndarrays containing the predictions
-              from the Darknet model for a single image
-            - image_size is a numpy.ndarray containing the image’s original
-              size [image_height, image_width]
-            - Returns a tuple of (boxes, box_confidences, box_class_probs)
-        """
-        boxes = [out[..., :4] for out in outputs]
-        for i, box in enumerate(boxes):
-            grid_h, grid_w, n_anchors, _ = box.shape
+        """function that processes single-image predictions"""
 
-            m_h = np.arange(grid_h).reshape(1, grid_h)
-            m_h = np.repeat(m_h, grid_w, axis=0).T
-            m_h = np.repeat(m_h[:, :, np.newaxis], n_anchors, axis=2)
-            m_w = np.arange(grid_w).reshape(1, grid_w)
-            m_w = np.repeat(m_w, grid_h, axis=0)
-            m_w = np.repeat(m_w[:, :, np.newaxis], n_anchors, axis=2)
+        boxes = []
+        box_confidences = []
+        box_class_probs = []
 
-            box[..., :2] = self.sigmoid(box[..., :2])
-            box[..., 0] += m_w
-            box[..., 1] += m_h
+        # Loop over the output feature maps (here 13x13, 26x26, 52x52)
+        # so i ranges from 0 to 2
+        for i, output in enumerate(outputs):
+            # print("output {}:".format(i))
+            grid_height = output.shape[0]
+            # print(grid_height)
+            grid_width = output.shape[1]
+            # print(grid_width)
+            anchor_boxes = output.shape[2]
+            # print(anchor_boxes)
+            boxs = output[..., :4]
+            # print("boxes:", boxes.shape, boxes)
+            # Extract the network output predictions ("raw" coordinates
+            # and dimensions) to be processed into bounding box predictions
+            t_x = boxs[..., 0]
+            t_y = boxs[..., 1]
+            t_w = boxs[..., 2]
+            t_h = boxs[..., 3]
+            # print("t_x:", t_x.shape, t_x)
+            # print("t_y:", t_y.shape, t_y)
+            # print("t_w:", t_w.shape, t_w)
+            # print("t_h:", t_h.shape, t_h)
 
-            box[..., 2:] = np.exp(box[..., 2:])
-            anchor_w = self.anchors[i, :, 0]
-            anchor_h = self.anchors[i, :, 1]
-            box[..., 2] *= anchor_w
-            box[..., 3] *= anchor_h
+            # Create 3D arrays with the left-corner coordinates (c_x, c_y)
+            # of each grid cell. Values added in the b_x, b_y formulae (below)
+            # make a row vector of grid_width length
+            c_x = np.arange(grid_width).reshape(1, grid_width)
+            # print(c_x)
+            # make a 2D array of grid_width columns and grid_height rows,
+            # but do not transpose it
+            c_x = np.repeat(c_x, grid_height, axis=0)
+            # print(c_x)
+            # add the third axis, duplicating the coordinate values by
+            # anchor_boxes
+            c_x = np.repeat(c_x[..., np.newaxis], anchor_boxes, axis=2)
+            # print(c_x)
+            # make a row vector of grid_width length
+            c_y = np.arange(grid_width).reshape(1, grid_width)
+            # print(c_y)
+            # make a 2D array of grid_width columns and grid_height rows,
+            # and transpose it
+            c_y = np.repeat(c_y, grid_height, axis=0).T
+            # print(c_y)
+            # add the third axis, duplicating the coordinate values by
+            # anchor_boxes
+            c_y = np.repeat(c_y[..., np.newaxis], anchor_boxes, axis=2)
+            # print(c_y)
 
-            box[..., 0] /= grid_w
-            box[..., 1] /= grid_h
+            # The network output predictions are passed through a sigmoid
+            # function, which squashes the output in a range from 0 to 1,
+            # effectively keeping the center in the grid which is predicting.
+            # Add the top-left coordinates of the grid (c_x and c_y),
+            # because YOLO predicts offsets relative to the top-left corner
+            # of the grid cell which is predicting the object.
+            # The resultant predictions (b_x and b_y) are normalised by
+            # the width and height of the grid, e.g. 13 x 13. i.e., if the
+            # predictions b_x and b_y for the box containing the object
+            # are (0.3, 0.8), the actual centre coordinates of the box
+            # on the 13 x 13 feature map are (13 x 0.3, 13 x 0.8).
+            b_x = (self.sigmoid(t_x) + c_x) / grid_width
+            b_y = (self.sigmoid(t_y) + c_y) / grid_height
 
-            box[..., 2] /= self.model.input.shape[1].value
-            box[..., 3] /= self.model.input.shape[2].value
+            # The dimensions of the bounding box (b_w, b_h) are predicted by
+            # applying a log-space transform to the output, and then
+            # multiplying with the anchor dimensions for the box.
+            # The resultant predictions (b_w and b_h) are normalised by the
+            # width and height of the image input to the model,
+            # e.g. 416 x 416. i.e., if the predictions b_w and b_h for the
+            # box containing the object are (0.4, 0.6), the actual width
+            # and height of the box on the 416 x 416 image are
+            # (416 x 0.4, 416 x 0.6).
+            anchor_width = self.anchors[i, :, 0]
+            anchor_height = self.anchors[i, :, 1]
+            # In tf 2.0, on Google Colab:
+            # image_width = self.model.input.shape[1]
+            # image_height = self.model.input.shape[2]
+            # But in tf 1.2 (see Stackoverflow):
+            image_width = self.model.input.shape[1].value
+            image_height = self.model.input.shape[2].value
+            b_w = (anchor_width * np.exp(t_w)) / image_width
+            b_h = (anchor_height * np.exp(t_h)) / image_height
 
-            box[..., 0] -= box[..., 2] / 2
-            box[..., 1] -= box[..., 3] / 2
+            # Top-left corner coordinates of the bounding box
+            x_1 = b_x - b_w / 2
+            y_1 = b_y - b_h / 2
+            # Bottom right-corner coordinates of the bounding box
+            x_2 = x_1 + b_w
+            y_2 = y_1 + b_h
 
-            box[..., 2] += box[..., 0]
-            box[..., 3] += box[..., 1]
+            # Express the boundary box coordinates relative to
+            # the original image
+            x_1 *= image_size[1]
+            y_1 *= image_size[0]
+            x_2 *= image_size[1]
+            y_2 *= image_size[0]
 
-            box[..., 0] *= image_size[1]
-            box[..., 2] *= image_size[1]
-            box[..., 1] *= image_size[0]
-            box[..., 3] *= image_size[0]
+            # Update boxes according to the bounding box coordinates
+            # inferred above
+            boxs[..., 0] = x_1
+            boxs[..., 1] = y_1
+            boxs[..., 2] = x_2
+            boxs[..., 3] = y_2
+            # print(box)
+            # Append the boxes coordinates to the boxes list
+            boxes.append(boxs)
 
-        box_conf = [self.sigmoid(out[..., 4, np.newaxis]) for out in outputs]
-        box_class_probs = [self.sigmoid(out[..., 5:]) for out in outputs]
+            # Extract the network output box_confidence prediction
+            box_confidence = output[..., 4:5]
+            # The prediction is passed through a sigmoid function,
+            # which squashes the output in a range from 0 to 1,
+            # to be interpreted as a probability.
+            box_confidence = self.sigmoid(box_confidence)
+            # print(box_confidence)
+            # Append box_confidence to box_confidences
+            box_confidences.append(box_confidence)
 
-        return boxes, box_conf, box_class_probs
+            # Extract the network ouput class_probability predictions
+            classes = output[..., 5:]
+            # The predictions are passed through a sigmoid function,
+            # which squashes the output in a range from 0 to 1,
+            # to be interpreted as a probability.
+            # Note: before v3, YOLO used to softmax the class scores.
+            # However, that design choice has been dropped in v3. The
+            # reason is that Softmaxing class scores assume that the
+            # classes are mutually exclusive. In simple words, if an object
+            # belongs to one class, then it's guaranteed it cannot belong
+            # to another class. Assumption that does not always hold true!
+            classes = self.sigmoid(classes)
+            # print(classes)
+            # Append class_probability predictions to box_class_probs
+            box_class_probs.append(classes)
+
+        return (boxes, box_confidences, box_class_probs)
+
+    def sigmoid(self, array):
+        """define the sigmoid activation function"""
+        return 1 / (1 + np.exp(-1 * array))
 
     def filter_boxes(self, boxes, box_confidences, box_class_probs):
-        """ filter
-        Returns a tuple of (filtered_boxes, box_classes, box_scores):
-        filtered_boxes: a numpy.ndarray of shape (?, 4) containing all of the
-                        filtered bounding boxes:
-        box_classes: a numpy.ndarray of shape (?,) containing the class number
-                        that each box in filtered_boxes predicts, respectively
-        box_scores: a numpy.ndarray of shape (?) containing the box scores for
-                        each box in filtered_boxes, respectively
+        """function that filters boxes based on their objectness score"""
 
-        """
-        # box_scores
-        box_scores_prev = []
-        for b_c, b_c_p in zip(box_confidences, box_class_probs):
-            box_scores_prev.append(b_c * b_c_p)
+        box_scores = []
+        box_classes = []
+        filtered_boxes = []
 
-        box_scores_max = [box.max(axis=3) for box in box_scores_prev]
-        box_scores_max2 = [box.reshape(-1) for box in box_scores_max]
-        box_scores_conca = np.concatenate(box_scores_max2)
+        # Loop over the output feature maps (here 13x13, 26x26, 52x52)
+        # so i ranges from 0 to 2
+        for i, (box_confidence, box_class_prob, box) in enumerate(
+                zip(box_confidences, box_class_probs, boxes)):
+            # print("box_score #{}:".format(i))
+            # print(box_confidence.shape)
+            # print(box_class_prob.shape)
+            # print("box_confidence[..., 0]:", box_confidence[..., 0])
 
-        indx_to_delete = np.where(box_scores_conca < self.class_t)
+            # Compute the box scores for each output feature map
+            # note on shapes:
+            # (13, 13, 3, 1) * (13, 13, 3, 80) = (13, 13, 3, 80)
+            # -> a box score is defined for each box_class_prob value
+            box_scores_per_ouput = box_confidence * box_class_prob
+            # print("box_scores_per_ouput:", box_scores_per_ouput.shape)
 
-        box_scores = np.delete(box_scores_conca, indx_to_delete)
+            # For each individual box (3 per grid cell) keep the max of
+            # all the scores obtained (the one corresponding to the
+            # highest box_class_prob value)
+            max_box_scores = np.max(box_scores_per_ouput, axis=3)
+            # print("max_box_scores:", max_box_scores.shape)
+            # Combine all the scores in a 1D np.ndarray
+            # (e.g. (13, 13, 3) -> (507,) here, a simple raw vector)
+            max_box_scores = max_box_scores.reshape(-1)
+            # print("max_box_scores.reshape(-1):", max_box_scores.shape)
 
-        # box_classes
-        box_classes_prev = [box.argmax(axis=3) for box in box_scores_prev]
-        box_classes_prev2 = [box.reshape(-1) for box in box_classes_prev]
-        box_classes_conca = np.concatenate(box_classes_prev2)
-        box_classes = np.delete(box_classes_conca, indx_to_delete)
+            # Determine the object class of the boxes with the max scores
+            max_box_classes = np.argmax(box_scores_per_ouput, axis=3)
+            # print("max_box_classes:", max_box_classes.shape)
+            # Combine all the classes in a 1D np.ndarray
+            # (e.g. (13, 13, 3) -> (507,) here, a simple raw vector)
+            max_box_classes = max_box_classes.reshape(-1)
+            # print("max_box_classes.reshape(-1):", max_box_classes.shape)
 
-        # filtered_boxes
-        boxes2 = [box.reshape(-1, 4) for box in boxes]
-        boxes_conca = np.concatenate(boxes2, axis=0)
-        filtered_boxes = np.delete(boxes_conca, indx_to_delete, axis=0)
+            # Combine all the boxes (3 per grid cell) in a 2D np.ndarray
+            # (e.g. (13, 13, 3, 4) -> (507, 4) here, a 2D matrix)
+            # These are all the boxes for a given output feature map
+            # print("box:", box.shape)
+            box = box.reshape(-1, 4)
+            # print("box:", box.shape)
+
+            # Create the list of indices pointing to the elements
+            # to be removed, using the class_t: the box score threshold
+            # for the initial filtering step
+            index_list = np.where(max_box_scores < self.class_t)
+
+            # Delete the box scores to be removed by index
+            max_box_scores_filtered = np.delete(max_box_scores, index_list)
+            # print("max_box_scores_filtered:", max_box_scores_filtered.shape)
+
+            # Delete the corresponding object classes to be removed by index
+            max_box_classes_filtered = np.delete(max_box_classes, index_list)
+            # print("max_box_classes_filtered:",
+            #       max_box_classes_filtered.shape)
+
+            # Delete the corresponding boxes to be removed by index
+            filtered_box = np.delete(box, index_list, axis=0)
+            # print("filtered_box:", filtered_box.shape)
+
+            # Append the updated arrays to the respective lists
+            box_scores.append(max_box_scores_filtered)
+            box_classes.append(max_box_classes_filtered)
+            filtered_boxes.append(filtered_box)
+
+        # Concatenate the np.ndarrays of all the output feature maps
+        # (here 13x13, 26x26, 52x52)
+        box_scores = np.concatenate(box_scores)
+        # print("len(box_scores):", len(box_scores))
+        box_classes = np.concatenate(box_classes)
+        # print("len(box_classes):", len(box_classes))
+        filtered_boxes = np.concatenate(filtered_boxes, axis=0)
+        # print("len(filtered_boxes):", len(filtered_boxes))
 
         return (filtered_boxes, box_classes, box_scores)
 
-    def overlap(self, interval_a, interval_b):
-        """ claculates axis diferences """
-        x1, x2 = interval_a
-        x3, x4 = interval_b
-
-        if x3 < x1:
-            if x4 < x1:
-                return 0
-            else:
-                return min(x2, x4) - x1
-        else:
-            if x2 < x3:
-                return 0
-            else:
-                return min(x2, x4) - x3
-
-    def iou(self, box1, box2):
-        """ calculates intersection over union """
-        # print(box1)
-        # print(box2)
-        # print("---"*10)
-        intersect_w = self.overlap([box1[0], box1[2]], [box2[0], box2[2]])
-        intersect_h = self.overlap([box1[1], box1[3]], [box2[1], box2[3]])
-
-        intersect = intersect_w * intersect_h
-
-        w1, h1 = box1[2]-box1[0], box1[3]-box1[1]
-        w2, h2 = box2[2]-box2[0], box2[3]-box2[1]
-
-        union = w1*h1 + w2*h2 - intersect
-
-        return float(intersect) / union
-
     def non_max_suppression(self, filtered_boxes, box_classes, box_scores):
-        """ Non - max
-        Returns a tuple of (box_predictions, predicted_box_classes,
-                predicted_box_scores):
-
-                box_predictions: a numpy.ndarray of shape (?, 4) containing
-                all of the predicted bounding boxes ordered by class and
-                box score
-
-                predicted_box_classes: a numpy.ndarray of shape (?,)
-                containing the class number for box_predictions ordered by
-                class and box score, respectively
-
-                predicted_box_scores: a numpy.ndarray of shape (?)
-                containing the box scores for box_predictions ordered by
-                class and box score, respectively
         """
-        ind = np.lexsort((box_scores, box_classes))
+        function that filters boxes based on their IOU threshold with the box
+        having the highest probability for the prediction of a given object
+        (class)
+        """
 
-        box_predictions = np.array([filtered_boxes[i] for i in ind])
-        predicted_box_classes = np.array([box_classes[i] for i in ind])
-        predicted_box_scores = np.array([box_scores[i] for i in ind])
+        box_predictions = []
+        predicted_box_classes = []
+        predicted_box_scores = []
 
-        i = 0
-        c = 0
-        idx_to_delete = []
-        classes, counts = np.unique(predicted_box_classes, return_counts=True)
+        # For each box class (object type) in box_classes, pair-compare
+        # all the boxes, and pick the boxes that do not overlap beyond
+        # the IOU treshold (here: self.nms_t), hence deleting the others
+        # Note: np.unique() removes the class duplicates and sorts by
+        # ascending order.
+        for box_class in np.unique(box_classes):
 
-        i = 0
-        ct_prev = 0
-        for cl, ct in zip(classes, counts):
-            j = 1
-            while i < ct + ct_prev:
-                while j < ct + ct_prev - i:
-                    tmp = self.iou(box_predictions[i], box_predictions[i+j])
-                    # print(tmp if tmp  > self.nms_t else "")
-                    if tmp > self.nms_t:
-                        # print(tmp)
-                        box_predictions = np.delete(box_predictions, i+j,
-                                                    axis=0)
-                        predicted_box_scores = np.delete(predicted_box_scores,
-                                                         i+j, axis=0)
-                        predicted_box_classes = (np.delete
-                                                 (predicted_box_classes,
-                                                  i+j, axis=0))
-                        ct -= 1
-                    else:
-                        j += 1
-                i += 1
-                j = 1
-            ct_prev += ct
+            # Make a list of indices corresponding to the locations
+            # (in the box_classes array) where the same box class can be
+            # found in the box_classes array (same object type detected):
+            indices = np.where(box_classes == box_class)[0]
+            # [note: np.where() with condition-only argument acts like
+            # np.nonzero(), returning the indices of the elements that
+            # are non-zero as a tuple of this type (array([1, 3]),)]
 
-        return box_predictions, predicted_box_classes, predicted_box_scores
+            # Make subsets with the boxes that have the same box class:
+            filtered_boxes_subset = filtered_boxes[indices]
+            box_classes_subset = box_classes[indices]
+            box_scores_subset = box_scores[indices]
+
+            # Instantiate the top-left and bottom-right corner coordinates
+            # of the bounding boxes to then compute their surface area
+            x1 = filtered_boxes_subset[:, 0]
+            y1 = filtered_boxes_subset[:, 1]
+            x2 = filtered_boxes_subset[:, 2]
+            y2 = filtered_boxes_subset[:, 3]
+            box_areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+
+            # Make a list of indices corresponding to the locations
+            # (in the box_scores subset array) but reordered by sorting
+            # the box_scores subset array in descending order (higher
+            # scores first, on the left end of the sorted subset):
+            ranked = np.argsort(box_scores_subset)[::-1]
+
+            # Initialize an empty list where the indices
+            # of the boxes to be kept will be stored
+            pick = []
+
+            # Loop while the ranked list still contains indices
+            # (i.e. boxes left in the filtered_boxes subset)
+            while len(ranked) > 0:
+                # Add the first index of the ranked list in the "pick"
+                # list of indices corresponding to the boxes to be kept
+                pick.append(ranked[0])
+
+                # Given two bounding boxes, determine the x, y
+                # coordinates of the top-left and bottom-right corners
+                # of the intersection rectangle:
+                xx1 = np.maximum(x1[ranked[0]], x1[ranked[1:]])
+                yy1 = np.maximum(y1[ranked[0]], y1[ranked[1:]])
+                xx2 = np.minimum(x2[ranked[0]], x2[ranked[1:]])
+                yy2 = np.minimum(y2[ranked[0]], y2[ranked[1:]])
+                # Calculate the surface area of the intersection rectangle,
+                # ensure inter_area = 0 if the boxes do not intersect:
+                inter_areas = (np.maximum(0, xx2 - xx1 + 1) *
+                               np.maximum(0, yy2 - yy1 + 1))
+                # Calculate the surface area of the union of any two boxes:
+                union_areas = (box_areas[ranked[0]] + box_areas[ranked[1:]]
+                               - inter_areas)
+                # Calculate the IOU:
+                IOU = inter_areas / union_areas
+
+                # delete all indexes from the index list that have
+                # indxs = np.delete(indxs, np.concatenate(([last],
+                #   np.where(overlap > self.nms_t)[0])))
+
+                # Make a list of indices corresponding to the locations
+                # (in the filtered_boxes subset) where the IOU is 0 or less
+                # than or equal to the IOU treshold (here: self.nms_t).
+                # This is where the boxes to be removed get deleted!
+                # (via the omission of their index in updated_indices)
+                updated_indices = np.where(IOU <= self.nms_t)[0]
+                # print("idxs:", idxs)
+                # Ranked list is updated with the new list "updated_indices"
+                # where the indices of the boxes to be removed got deleted
+                # (+1 is added to each element of the updated_indices array
+                # to account for the offset induced by ranked[0] when
+                # calculating the IOU):
+                ranked = ranked[updated_indices + 1]
+
+            # Convert pick list to np.ndarray (optional)
+            pick = np.array(pick)
+            # Combine the "pick"-updated np.ndarray subsets
+            # (one for each box_class taken in np.unique(box_classes))
+            # into their respective prediction list:
+            box_predictions.append(filtered_boxes_subset[pick])
+            predicted_box_classes.append(box_classes_subset[pick])
+            predicted_box_scores.append(box_scores_subset[pick])
+
+        # Group the np.ndarray subsets into a single np.ndarray
+        box_predictions = np.concatenate(box_predictions)
+        predicted_box_classes = np.concatenate(predicted_box_classes)
+        predicted_box_scores = np.concatenate(predicted_box_scores)
+        # box_predictions = np.array(box_predictions)
+        # predicted_box_classes = np.array(predicted_box_classes)
+        # predicted_box_scores = np.array(predicted_box_scores)
+
+        return (box_predictions, predicted_box_classes, predicted_box_scores)
 
     @staticmethod
     def load_images(folder_path):
-        """ folder_path: a string representing the path to the folder holding
-                        all the images to load
-            Returns a tuple of (images, image_paths):
-                images: a list of images as numpy.ndarrays
-                image_paths: a list of paths to the individual images in images
-        """
-        image_paths = glob.glob(folder_path + "/*")
-        images = [cv2.imread(img) for img in image_paths]
+        """function that loads images from a given image path"""
 
-        return images, image_paths
+        image_paths = []
+        images = []
+
+        for filename in os.listdir(folder_path):
+            image_path = os.path.join(folder_path, filename)
+            if image_path is not None:
+                image_paths.append(image_path)
+                image = cv2.imread(image_path)
+                if image is not None:
+                    images.append(image)
+
+        return (images, image_paths)

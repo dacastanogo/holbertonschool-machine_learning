@@ -7,10 +7,10 @@ r = np.log(0.5)
 t = 5730
 y = np.exp((r / t) * x)
 
-plt.plot(x, y, c='b')
+plt.plot(x, y)
+plt.yscale('log')
+plt.autoscale(axis='x', tight=True)
 plt.xlabel('Time (years)')
 plt.ylabel('Fraction Remaining')
 plt.title('Exponential Decay of C-14')
-plt.xlim(0, 28650)
-plt.yscale('log')
 plt.show()

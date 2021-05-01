@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """
-Function that calculates the precision
-for each class in a confusion matrix
+Precision
 """
 import numpy as np
 
 
 def precision(confusion):
-    """
-    Function that calculates the precision
-    for each class in a confusion matrix
-    """
-    diagonal_tp = np.diagonal(confusion)
-    positives = np.sum(confusion, axis=0)
-    return diagonal_tp / positives
+    """function that calculates the precision for each class"""
+    classes, classes = confusion.shape
+    precision = np.zeros(shape=(classes,))
+    for i in range(classes):
+        precision[i] = confusion[i][i] / np.sum(confusion, axis=0)[i]
+    return precision

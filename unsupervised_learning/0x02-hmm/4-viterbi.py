@@ -1,101 +1,88 @@
 #!/usr/bin/env python3
-"""contains the forward function"""
-
+"""
+4-viterbi.py
+"""
 import numpy as np
 
 
 def viterbi(Observation, Emission, Transition, Initial):
-    """
-        calculates the most likely sequence of hidden states for a hidden
-        markov model
-        :param Observation: numpy.ndarray of shape (T,)
-            that contains the index of the observation
-            T is the number of observations
-        :param Emission: numpy.ndarray of shape (N, M)
-            containing the emission probability of a specific
-                observation given a hidden state
-            Emission[i, j] is the probability of observing j given the
-                hidden state i
-            N is the number of hidden states
-            M is the number of all possible observations
-        :param Transition: 2D numpy.ndarray of shape (N, N)
-            containing the transition probabilities
-            Transition[i, j] is the probability of transitioning from the
-            hidden state i to j
-        :param Initial: numpy.ndarray of shape (N, 1) containing the
-            probability of starting
-            in a particular hidden state
-        :return: path, P, or None, None on failure
-            path is the a list of length T containing the most likely
-            sequence of hidden states
-            P is the probability of obtaining the path sequence
-        """
-    # type and len(dim) conditions
-    if not isinstance(Observation, np.ndarray) or len(Observation.shape) != 1:
+    """function that that calculates the most likely sequence of hidden states
+    for a hidden markov model"""
+
+    # Initial: shape (N, 1), N: number of hidden states
+    if not isinstance(Initial, np.ndarray) or Initial.ndim != 2:
         return None, None
-
-    if not isinstance(Emission, np.ndarray) or len(Emission.shape) != 2:
+    if Initial.shape[1] != 1:
         return None, None
-
-    if not isinstance(Transition, np.ndarray) or len(Transition.shape) != 2:
+    if not np.isclose(np.sum(Initial, axis=0), [1])[0]:
         return None, None
-
-    if not isinstance(Initial, np.ndarray) or len(Initial.shape) != 2:
+    # Transition: shape (N, N)
+    if not isinstance(Transition, np.ndarray) or Transition.ndim != 2:
         return None, None
-
-    # dim conditions
-    T = Observation.shape[0]
-
-    N, M = Emission.shape
-
-    if Transition.shape[0] != N or Transition.shape[1] != N:
+    if Transition.shape[0] != Initial.shape[0]:
         return None, None
-
-    if Initial.shape[0] != N or Initial.shape[1] != 1:
+    if Transition.shape[1] != Initial.shape[0]:
         return None, None
-
-    # stochastic
+    if not np.isclose(np.sum(Transition, axis=1),
+                      np.ones(Initial.shape[0])).all():
+        return None, None
+    # Observation: shape (T,), T: number of observations
+    if not isinstance(Observation, np.ndarray) or Observation.ndim != 1:
+        return None, None
+    # Emission: shape (N, M), M: number of all possible observations
+    if not isinstance(Emission, np.ndarray) or Emission.ndim != 2:
+        return None, None
     if not np.sum(Emission, axis=1).all():
         return None, None
-    if not np.sum(Transition, axis=1).all():
+    if not np.isclose(np.sum(Emission, axis=1),
+                      np.ones(Emission.shape[0])).all():
         return None, None
-    if not np.sum(Initial) == 1:
-        return None, None
 
-    viterbi = np.zeros((N, T))
-    backpointer = np.zeros((N, T))
+    # N: Number of hidden states
+    N = Initial.shape[0]
+    # print("N:", N)
+    # T: Number of observations
+    T = Observation.shape[0]
+    # print("T:", T)
 
-    # initialization
-    Obs_t = Observation[0]
-    backpointer[:, 0] = 0
-    prob = np.multiply(Initial[:, 0], Emission[:, Obs_t])
-    viterbi[:, 0] = prob
+    # Initialize an array V (equivalent to alpha): shape (N, T)
+    # V1(z1) = alpha1(z1) = p(z1,x1) = p(z1)p(x1/z1)
+    # p(z1): Initial
+    # p(x1/z1): Extract from Emission probability matrix
+    V = np.zeros((N, T))
+    V[:, 0] = Initial.T * Emission[:, Observation[0]]
+    # print("V[:, 0]:", V[:, 0], V[:, 0].shape)
 
-    # recursion
-    for t in range(1, T):
-        a = viterbi[:, t - 1]
-        b = Transition.T
-        ab = a * b
-        ab_max = np.amax(ab, axis=1)
-        c = Emission[:, Observation[t]]
-        prob = ab_max * c
+    # Initialize an array B, keeping track of the possible state sequences
+    B = np.zeros((N, T))
 
-        viterbi[:, t] = prob
-        backpointer[:, t - 1] = np.argmax(ab, axis=1)
-
-    # path initialization
-    path = []
-    current = np.argmax(viterbi[:, T - 1])
-    path = [current] + path
-
-    # path backwards traversing
-    for t in range(T - 2, -1, -1):
-        current = int(backpointer[current, t])
-        path = [current] + path
-
-    # max path probabilities among all possible states
-    # end of path
-
-    P = np.amax(viterbi[:, T - 1], axis=0)
+    for j in range(1, T):
+        for i in range(N):
+            # Apply the Forward algorithm to compose V (recursive/dynamic)
+            # Compute Vk(zk) = alphak(zk) =
+            # sum(over zk-1=1,...N)(p(xk/zk)p(zk/zk-1)Vk-1(zk-1)) for k=2,...T
+            # V[i, j]: probability of being in hidden state i at time j
+            # given the previous observations
+            temp = Emission[i, Observation[j]] * Transition[:, i] * V[:, j - 1]
+            # print("temp:", temp)
+            V[i, j] = np.max(temp, axis=0)
+            # print("V at {}:".format(i), V)
+            B[i, j] = np.argmax(temp, axis=0)
+            # print("B at {}:".format(i), B)
+    # Extract the forward path probabilities for the last observation
+    # and from this column vector, extract the max value <- max probability
+    # -> infer the most likely path sequence; P: corresponding probability
+    P = np.max(V[:, T - 1])
+    # Infer the index of the corresponding state (last hidden state)
+    # (most likely hidden state at T - 1)
+    S = np.argmax(V[:, T - 1])
+    # Add S to a "path" array
+    path = [S]
+    # Iterate over the remaining time steps, and then reverse path
+    for j in range(T - 1, 0, -1):
+        S = int(B[S, j])
+        path.append(S)
+    path = path[:: -1]
+    # print("path:", len(path))
 
     return path, P

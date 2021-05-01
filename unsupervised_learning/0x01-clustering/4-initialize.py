@@ -1,37 +1,39 @@
 #!/usr/bin/env python3
-"""contains the initialize function"""
-
+"""
+4-initialize.py
+"""
 import numpy as np
 kmeans = __import__('1-kmeans').kmeans
 
 
 def initialize(X, k):
-    """
-     initializes cluster centroids for K-means
-    :param X: numpy.ndarray of shape (n, d)
-        containing the dataset that will be used for K-means clustering
-        n is the number of data points
-        d is the number of dimensions for each data point
-    :param k: positive integer containing the number of clusters
-    :return: pi, m, S, or None, None, None on failure
-        pi is a numpy.ndarray of shape (k,)
-            containing the priors for each cluster, initialized evenly
-        m is a numpy.ndarray of shape (k, d)
-            containing the centroid means for each cluster,
-            initialized with K-means
-        S is a numpy.ndarray of shape (k, d, d)
-            containing the covariance matrices for each cluster,
-            initialized as identity matrices
-    """
-    if not isinstance(X, np.ndarray) or len(X.shape) != 2:
-        return None, None, None
-    if type(k) != int or k <= 0 or k >= X.shape[0]:
+    """function that initializes variables for a Gaussian Mixture Model"""
+
+    if not isinstance(X, np.ndarray) or X.ndim != 2:
         return None, None, None
 
+    # n: number of dada points
+    # d: dimension of each data point
     n, d = X.shape
-    pi = np.tile(1/k, (k,))
+    # print(X.shape)
+    # print(X)
+
+    if not isinstance(k, int) or k <= 0 or k > n:
+        return None, None, None
+
+    # Initialize the "pi" array of shape (k,)
+    # containing the priors for each cluster
+    pi = np.full(shape=(k,), fill_value=1/k)
+
+    # Initialize the "m" array of shape (k, d) containing
+    # the centroid means for each cluster, initialized with K-means;
+    # output is an array of coordinates
     m, _ = kmeans(X, k)
-    S_ = np.identity(d)
-    S = np.tile(S_, (k, 1, 1))
+
+    # Initialize the "S" array of shape (k, d, d) containing
+    # the covariance matrices for each cluster,
+    # initialized as identity matrices
+    Sij = np.diag(np.ones(d))
+    S = np.tile(Sij, (k, 1)).reshape(k, d, d)
 
     return pi, m, S

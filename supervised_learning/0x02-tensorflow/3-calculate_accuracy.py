@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-""" Accuracy """
+"""
+Accuracy
+"""
 import tensorflow as tf
 
 
 def calculate_accuracy(y, y_pred):
-    """ calculates the accuracy of a prediction """
-    pred = tf.argmax(y_pred, 1)
-    val = tf.argmax(y, 1)
-    equality = tf.equal(pred, val)
-    accuracy = tf.reduce_mean(tf.cast(equality, tf.float32))
-
+    """function that calculates the accuracy of a prediction"""
+    label = tf.argmax(y, axis=1)
+    pred = tf.argmax(y_pred, axis=1)
+    accuracy = tf.reduce_mean(tf.cast(tf.equal(pred, label), tf.float32))
     return accuracy

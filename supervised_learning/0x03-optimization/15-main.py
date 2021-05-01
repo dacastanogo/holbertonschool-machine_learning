@@ -27,5 +27,5 @@ if __name__ == '__main__':
     np.random.seed(0)
     tf.set_random_seed(0)
     save_path = model((X_train, Y_train_oh), (X_valid, Y_valid_oh), layer_sizes,
-                                 activations, save_path='./model.ckpt')
+                      activations, save_path='./model.ckpt')
     print('Model saved in path: {}'.format(save_path))

@@ -1,22 +1,33 @@
 #!/usr/bin/env python3
-""" Evaluate """
+"""
+Evaluate
+"""
 import tensorflow as tf
 
 
 def evaluate(X, Y, save_path):
-    """ evaluates the output of a neural network """
+    """function that evaluates the output of a nn"""
     with tf.Session() as sess:
-        saver = tf.train.import_meta_graph(save_path + ".meta")
-        saver.restore(sess, save_path)
+        loader = tf.train.import_meta_graph(save_path + '.meta')
+        loader.restore(sess, save_path)
 
-        x = tf.get_collection("x")[0]
-        y = tf.get_collection("y")[0]
-        y_pred = tf.get_collection("y_pred")[0]
-        loss = tf.get_collection("loss")[0]
-        accuracy = tf.get_collection("accuracy")[0]
+        # the following approach will NOT work here due to
+        # "NameError: name 'x' is not defined" -> globals() call instead
+        # params = {'x': x, 'y': y, 'y_pred': y_pred, 'accuracy': accuracy,
+        #           'loss': loss, 'train_op': train_op}
+        # for k, v in params.items():
+        #     v = tf.get_collection(k)[0]
 
-        feed_dict = {x: X, y: Y}
-        fp = sess.run(y_pred, feed_dict)
-        ac = sess.run(accuracy, feed_dict)
-        ls = sess.run(loss, feed_dict)
-    return fp, ac, ls
+        # globals() creates variables with names given as strings at run-time
+        var_names = ['x', 'y', 'y_pred', 'accuracy', 'loss']
+        for var_name in var_names:
+            globals()[var_name] = tf.get_collection(var_name)[0]
+            # print(globals()[var_name])
+
+        y_pred = sess.run(globals()['y_pred'], feed_dict={x: X, y: Y})
+        loss = sess.run(globals()['loss'], feed_dict={x: X, y: Y})
+        acc = sess.run(globals()['accuracy'], feed_dict={x: X, y: Y})
+        # print(y_pred)
+        # print(acc)
+        # print(loss)
+    return y_pred, acc, loss

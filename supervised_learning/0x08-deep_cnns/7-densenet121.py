@@ -1,52 +1,69 @@
 #!/usr/bin/env python3
 """
-function builds the DenseNet-121 architecture
+DenseNet-121
 """
-
 import tensorflow.keras as K
-
-
 dense_block = __import__('5-dense_block').dense_block
 transition_layer = __import__('6-transition_layer').transition_layer
 
 
 def densenet121(growth_rate=32, compression=1.0):
     """
-    growth_rate: growth rate
-    compression: compression factor
-    inputdata: shape (224, 224, 3)
-    BatchNorm-> Relu-> conv layer
-    weights: he_normal initialization
-    Returns: keras model
+    function that builds a DenseNet-121 network
+    as described in Densely Connected Convolutional Networks
     """
+    initializer = K.initializers.he_normal()
+    X = K.Input(shape=(224, 224, 3))
 
-    inputData = K.Input(shape=(224, 224, 3))
-    init = K.initializers.he_normal(seed=None)
-    bNorm = K.layers.BatchNormalization()(inputData)
-    act = K.layers.Activation('relu')(bNorm)
-    conv = K.layers.Conv2D(filters=64,
-                           kernel_size=7,
-                           strides=2,
-                           padding='same',
-                           kernel_initializer=init)(act)
-    pool_1 = K.layers.MaxPooling2D(pool_size=3,
-                                   strides=2,
-                                   padding='same')(conv)
-    output2, nbFilters2 = dense_block(pool_1, 64, growth_rate, 6)
-    output3, nbFilters3 = transition_layer(output2, nbFilters2, compression)
+    norm_1 = K.layers.BatchNormalization()
+    output_1 = norm_1(X)
+    activ_1 = K.layers.Activation('relu')
+    output_1 = activ_1(output_1)
+    layer_1 = K.layers.Conv2D(filters=64,
+                              kernel_size=7,
+                              padding='same',
+                              strides=2,
+                              kernel_initializer=initializer,
+                              activation=None)
+    output_1 = layer_1(output_1)
 
-    output4, nbFilters4 = dense_block(output3, nbFilters3, growth_rate, 12)
-    output5, nbFilters5 = transition_layer(output4, nbFilters4, compression)
+    layer_2 = K.layers.MaxPool2D(pool_size=3,
+                                 padding='same',
+                                 strides=2)
+    output_2 = layer_2(output_1)
 
-    output6, nbFilters6 = dense_block(output5, nbFilters5, growth_rate, 24)
-    output7, nbFilters7 = transition_layer(output6, nbFilters6, compression)
+    db1_output = dense_block(output_2, output_2.shape[-1], growth_rate, 6)
+    tl1_output = transition_layer(
+        db1_output[0], int(db1_output[1]), compression)
 
-    output8, nbFilters8 = dense_block(output7, nbFilters7, growth_rate, 16)
+    db2_output = dense_block(tl1_output[0], tl1_output[1], growth_rate, 12)
+    tl2_output = transition_layer(
+        db2_output[0], int(db2_output[1]), compression)
 
-    avgPool = K.layers.AveragePooling2D(pool_size=7,
-                                        strides=7,
-                                        padding='same')(output8)
-    outputs = K.layers.Dense(units=1000,
+    db3_output = dense_block(tl2_output[0], tl2_output[1], growth_rate, 24)
+    tl3_output = transition_layer(
+        db3_output[0], int(db3_output[1]), compression)
+
+    db4_output = dense_block(tl3_output[0], tl3_output[1], growth_rate, 16)
+
+    layer_3 = K.layers.AvgPool2D(pool_size=7,
+                                 padding='same',
+                                 strides=None)
+    output_3 = layer_3(db4_output[0])
+
+    # AvgPool2D reduced data to 1 x 1: no need to flatten here
+    # flatten = K.layers.Flatten()
+    # output_3 = flatten(output_3)
+
+    # here pass 'softmax' activation to the model
+    # prior to compiling/training the model (not recommended)
+    softmax = K.layers.Dense(units=1000,
                              activation='softmax',
-                             kernel_initializer=init)(avgPool)
-    return K.models.Model(inputData, outputs)
+                             kernel_initializer=initializer,
+                             kernel_regularizer=K.regularizers.l2())
+    output_4 = softmax(output_3)
+
+    # instantiate a model from the Model class
+    model = K.models.Model(inputs=X, outputs=output_4)
+
+    return model

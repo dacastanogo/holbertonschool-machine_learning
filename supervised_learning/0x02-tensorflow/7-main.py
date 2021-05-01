@@ -3,10 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import sys
 evaluate = __import__('7-evaluate').evaluate
 
-np.set_printoptions(threshold=sys.maxsize)
 def one_hot(Y, classes):
     """convert an array to a one-hot matrix"""
     one_hot = np.zeros((Y.shape[0], classes))
@@ -23,8 +21,6 @@ if __name__ == '__main__':
     Y_pred_oh, accuracy, cost = evaluate(X_test, Y_test_oh, './model.ckpt')
     print("Test Accuracy:", accuracy)
     print("Test Cost:", cost)
-    print("Y_pred type", type(Y_pred_oh))
-    print("Y_pred", Y_pred_oh)
 
     Y_pred = np.argmax(Y_pred_oh, axis=1)
 

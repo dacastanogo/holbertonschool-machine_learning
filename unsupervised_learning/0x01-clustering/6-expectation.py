@@ -1,61 +1,61 @@
 #!/usr/bin/env python3
-"""contains the expectation function"""
-
+"""
+6-expectation.py
+"""
 import numpy as np
-
 pdf = __import__('5-pdf').pdf
 
 
 def expectation(X, pi, m, S):
     """
-
-    :param X: numpy.ndarray of shape (n, d)
-        containing the data set
-    :param pi: numpy.ndarray of shape (k,)
-        containing the priors for each cluster
-    :param m: numpy.ndarray of shape (k, d)
-        containing the centroid means for each cluster
-    :param S: numpy.ndarray of shape (k, d, d)
-        containing the covariance matrices for each cluster
-    :return: g, l, or None, None on failure
-        g is a numpy.ndarray of shape (k, n)
-            containing the posterior probabilities for
-            each data point in each cluster
-        l is the total log likelihood
+    function that calculates the expectation step in the EM algorithm for a GMM
     """
-    # type and shape
-    if not isinstance(X, np.ndarray) or len(X.shape) != 2:
+
+    if not isinstance(X, np.ndarray) or X.ndim != 2:
         return None, None
-    if not isinstance(pi, np.ndarray) or len(pi.shape) != 1:
+    if not isinstance(pi, np.ndarray) or pi.ndim != 1:
         return None, None
-    if not isinstance(m, np.ndarray) or len(m.shape) != 2:
+    if not isinstance(m, np.ndarray) or m.ndim != 2:
         return None, None
-    if not isinstance(S, np.ndarray) or len(S.shape) != 3:
+    if not isinstance(S, np.ndarray) or S.ndim != 3:
         return None, None
 
+    # n: number of dada points
+    # d: dimension of each data point
     n, d = X.shape
+
+    if pi.shape[0] > n:
+        return None, None
     k = pi.shape[0]
-
-    # adequate dimensions
-    if m.shape[1] != d or S.shape[1] != d or S.shape[2] != d:
+    if m.shape[0] != k or m.shape[1] != d:
         return None, None
-    if S.shape[0] != k:
+    if S.shape[0] != k or S.shape[1] != d or S.shape[2] != d:
         return None, None
-
-    # sum of pi equal to 1
+    # Ensure the sum of all priors is equal to 1
     if not np.isclose([np.sum(pi)], [1])[0]:
         return None, None
 
-    sum_i = 0
-    num = np.zeros((k, n))
+    # Initialize the array of posteriors "g"
+    g = np.zeros((k, n))
+    # Iterate over each cluster centroid:
     for i in range(k):
-        num[i] = pi[i] * pdf(X, m[i], S[i])
-        sum_i += num[i]
+        # Compute the PDF
+        # (here a 1D array containing the PDF values for each data point)
+        PDF = pdf(X, m[i], S[i])
+        # Compute the posteriors
+        # (here a 1D array of n posterior values)
+        # (pi[i] is a single prior value picked from pi:
+        # 1D array containing the priors for each cluster)
+        g[i] = pi[i] * PDF
+        # print("g[{}]:".format(i), g[i])
+    # Sum across the k clusters; set keepdims=True to adress checker reqs
+    sum_gis = np.sum(g, axis=0, keepdims=True)
+    # print("sum_gis:", sum_gis)
+    # print("sum_gis.shape:", sum_gis.shape)
+    g /= sum_gis
+    # print("g.shape:", g.shape)
 
-    sum_i = np.sum(num, axis=0, keepdims=True)
+    # Compute the likelihood
+    lkhd = np.sum(np.log(sum_gis))
 
-    g = num / sum_i
-
-    log_likelihood = np.sum(np.log(sum_i))
-
-    return g, log_likelihood
+    return g, lkhd
